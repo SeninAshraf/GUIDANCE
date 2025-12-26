@@ -1,0 +1,12 @@
+django
+djangorestframework
+psycopg2-binary
+openai
+spacy
+nltk
+jsonschema
+django-cors-headers
+reportlab
+groq
+pypdf
+google-generativeai
