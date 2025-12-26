@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'career_agent',
     'resume_builder',
     'interview_coach',
+    'job_insights',
 ]
 
 MIDDLEWARE = [

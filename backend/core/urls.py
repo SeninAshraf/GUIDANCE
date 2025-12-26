@@ -6,4 +6,5 @@ urlpatterns = [
     path('api/career-agent/', include('career_agent.urls')),
     path('api/resume-builder/', include('resume_builder.urls')),
     path('api/interview-coach/', include('interview_coach.urls')),
+    path('api/insights/', include('job_insights.urls')),
 ]

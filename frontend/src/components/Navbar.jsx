@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, Mic, FileText, Video, LogOut, Code, User, Home } from 'lucide-react';
+import { Menu, X, Mic, FileText, Video, LogOut, Code, User, Home, TrendingUp } from 'lucide-react';
 
 const Navbar = () => {
     const { currentUser, loginWithGoogle, logout } = useAuth();
@@ -16,6 +16,7 @@ const Navbar = () => {
         { path: '/career-guide', label: 'Career Agent', icon: <Mic className="w-5 h-5" /> },
         { path: '/resume-builder', label: 'Resume', icon: <FileText className="w-5 h-5" /> },
         { path: '/interview', label: 'Interview Coach', icon: <Video className="w-5 h-5" /> },
+        { path: '/insights', label: 'Job Insights', icon: <TrendingUp className="w-5 h-5" /> },
     ];
 
     const handleLogin = async () => {
@@ -36,7 +37,7 @@ const Navbar = () => {
                             <Code className="w-6 h-6 text-white" />
                         </div>
                         <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                            AI Career Comp.
+                            Guido
                         </span>
                     </Link>
 
@@ -47,8 +48,8 @@ const Navbar = () => {
                                 key={link.path}
                                 to={link.path}
                                 className={`flex items-center space-x-2 text-sm font-medium transition-colors duration-200 ${isActive(link.path)
-                                        ? 'text-blue-400'
-                                        : 'text-gray-400 hover:text-white'
+                                    ? 'text-blue-400'
+                                    : 'text-gray-400 hover:text-white'
                                     }`}
                             >
                                 {link.icon}
@@ -111,8 +112,8 @@ const Navbar = () => {
                                 to={link.path}
                                 onClick={() => setIsMenuOpen(false)}
                                 className={`block px-3 py-2 rounded-md text-base font-medium flex items-center space-x-3 ${isActive(link.path)
-                                        ? 'bg-gray-800 text-white'
-                                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                                    ? 'bg-gray-800 text-white'
+                                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
                                     }`}
                             >
                                 {link.icon}
