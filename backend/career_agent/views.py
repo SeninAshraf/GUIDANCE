@@ -34,7 +34,8 @@ class CareerAdviceView(APIView):
                     "CRITICAL: The user has requested the response in MALAYALAM. "
                     "Translate your response into natural, conversational Malayalam. "
                     "Do NOT start with formal greetings repeatedly. Just answer naturally like a Malayali friend. "
-                    "Keep it very simple and friendly."
+                    "Keep it very simple and friendly. "
+                    "IMPORTANT: Provide ONLY the Malayalam text. Do NOT include English translations in parentheses."
                 )
             else:
                 system_instruction = base_prompt
