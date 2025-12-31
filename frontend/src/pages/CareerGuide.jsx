@@ -13,7 +13,11 @@ const CareerGuide = () => {
     // Save to local storage whenever conversation changes
     useEffect(() => {
         localStorage.setItem('career_chat_history', JSON.stringify(conversation));
+        conversationRef.current = conversation; // Keep ref in sync
     }, [conversation]);
+
+    // Ref to access latest conversation in closures
+    const conversationRef = useRef(conversation);
 
     const [isLoading, setIsLoading] = useState(false);
     const [language, setLanguage] = useState('english'); // 'english' or 'malayalam'
@@ -84,14 +88,19 @@ const CareerGuide = () => {
         setIsLoading(true);
 
         try {
+            // Enforce Language Context in recent history for robustness (Ported from Dart Algo)
+            const langInstruction = language === 'malayalam'
+                ? "(Please reply in MALAYALAM script)"
+                : "(Please reply in ENGLISH)";
+
             const response = await fetch('http://localhost:8000/api/career-agent/advice/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: text,
+                    message: `${text} ${langInstruction}`, // Append instruction to message
                     language,
                     mode,
-                    history: conversation // Send existing history
+                    history: conversationRef.current // Use Ref to avoid stale closure
                 }),
             });
             const data = await response.json();
@@ -101,8 +110,13 @@ const CareerGuide = () => {
 
             // Play Backend Audio (gTTS) if available, else fallback to Browser TTS
             if (data.audio_base64) {
-                const audio = new Audio(`data:audio/mp3;base64,${data.audio_base64}`);
-                audio.play().catch(e => console.error("Audio Play Error:", e));
+                try {
+                    const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
+                    await audio.play();
+                } catch (e) {
+                    console.error("Audio Play Error:", e);
+                    alert("Audio Playback Failed: " + e.message);
+                }
             } else {
                 speakText(data.response);
             }
@@ -119,7 +133,7 @@ const CareerGuide = () => {
         <div className="flex flex-col h-[calc(100vh-84px)] glass-card p-6 max-w-4xl mx-auto mt-6 animate-fade-in mx-4">
             <div className="text-center mb-6">
                 <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400">
-                    AI Voice Career Coach
+                    Guido AI Career Coach
                 </h1>
                 <p className="text-gray-400 mt-2 text-sm">
                     {mode === 'reviews' ? '🔍 Analyzing Glassdoor Job Reviews' : 'Expert Software Engineering Guidance'}
@@ -135,7 +149,7 @@ const CareerGuide = () => {
                                 onClick={() => setMode('general')}
                                 className={`px-4 py-2 rounded-lg transition-all ${mode === 'general' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
                             >
-                                🧑‍💼 Career Coach
+                                🧑‍💼 Guido (Coach)
                             </button>
                             <button
                                 onClick={() => setMode('reviews')}

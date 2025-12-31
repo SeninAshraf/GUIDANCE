@@ -1,0 +1,20 @@
+# Secrets
+backend/test_gemini.py
+frontend/src/firebaseConfig.js
+.env
+.env.local
+service_account_key.json
+
+# System
+.DS_Store
+
+# Python / Django
+backend/venv/
+backend/__pycache__/
+*.pyc
+db.sqlite3
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env

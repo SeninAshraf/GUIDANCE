@@ -1,15 +1,17 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions
 import requests
 import os
 
+from groq import Groq
+
 # Provided Key
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={GEMINI_API_KEY}"
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={GEMINI_API_KEY}"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 class CareerAdviceView(APIView):
+    permission_classes = [permissions.AllowAny]
     def get(self, request):
         return Response({"status": "Online", "message": "Send a POST request with 'message' to get advice."})
 
@@ -51,11 +53,22 @@ class CareerAdviceView(APIView):
             mode = request.data.get('mode', 'general') # 'general' or 'reviews'
             
             base_system_prompt = (
-                "You are a friendly, enthusiastic Career Coach. "
-                "Your goal is to ensure the user feels confident and supported. "
-                "Keep your answers VERY SHORT (maximum 2 sentences). "
-                "Use emojis and a conversational tone. "
-                "Guidance focus: Software Engineering & Career Growth."
+                "You are a gentle, experienced career mentor who guides people with patience, empathy, and quiet confidence. "
+                "Speak in a calm, warm, and encouraging tone, making the user feel comfortable and understood. "
+                "Do NOT give generic advice immediately. Follow this EXACT gentle flow to build a clear picture:\n"
+                "1. CHECK HISTORY: Do you know their Educational Background? If NO, softly ask what they studied and where they stand academically/professionally.\n"
+                "2. Do you know their Strengths, Weaknesses & Interests? If NO, ask in a relaxed, non-judgmental way about what motivates and fulfills them.\n"
+                "3. Once you have enough info, gently reflect back what you understood about them.\n"
+                "4. Then, guide them toward a suitable and meaningful career path aligning with their growth.\n"
+                "5. Explain suggestions clearly and honestly, focusing on steady progress over perfection.\n"
+                "6. End with a clear, gentle action plan, offering reassurance and hope.\n\n"
+                "CRITICAL RULES:\n"
+                "- Ask ONE simple question at a time.\n"
+                "- Keep responses CONCISE (maximum 2-3 sentences) for voice interaction.\n"
+                "- Give the user space to think; be supportive and essentially human.\n"
+                "- Support both English and Malayalam.\n"
+                "- If the user speaks/selects MALAYALAM, reply strictly in MALAYALAM SCRIPT. Do NOT mix English unless for technical terms.\n"
+                "- If English, reply strictly in English."
             )
 
             if mode == 'reviews':
@@ -70,39 +83,33 @@ class CareerAdviceView(APIView):
                 # Default / General Mode
                 system_instruction = base_system_prompt
 
-            # Language Support
-            if language == 'malayalam':
-                system_instruction += (
-                    "\nCRITICAL INSTRUCTION: The user has requested the response in MALAYALAM. "
-                    "You MUST reply largely in MALAYALAM script (e.g. 'നമസ്കാരം'). "
-                    "Do NOT mix English words unless they are technical terms (like 'Python', 'React'). "
-                    "Do NOT provide the English translation. ONLY Malayalam."
-                )
+            # Language Support is now INTEGRATED into base_system_prompt as per Dart Algo
+            # We assume the Frontend sends explicit instructions in the message content as well.
 
-            # --- Construct History Context ---
+            # --- Construct History Context for Groq ---
+            messages = [{"role": "system", "content": system_instruction}]
+            
             history = request.data.get('history', [])
-            history_text = ""
-            for msg in history[-5:]: # Keep last 5 turns to manage context window
-                role_label = "User" if msg.get('role') == 'user' else "AI"
-                history_text += f"{role_label}: {msg.get('content')}\n"
+            print(f"DEBUG: Received history length: {len(history)}")
+            print(f"DEBUG: History content: {history}") 
 
-            full_prompt = f"{system_instruction}\n\nChat History:\n{history_text}\nUser Query: {user_message}"
+            for msg in history[-30:]: # Keep last 30 turns (Increased from 5 for better recall)
+                 # Map 'AI' role to 'assistant' for Groq/OpenAI format, ensure lowercase
+                 role = "user" if msg.get("role") and msg.get("role").lower() == "user" else "assistant"
+                 messages.append({"role": role, "content": msg.get("content", "")})
+            
+            messages.append({"role": "user", "content": user_message})
+            print(f"DEBUG: Final messages sent to LLM: {len(messages)}")
 
-            # Direct HTTP Request to Gemini API
-            payload = {
-                "contents": [{
-                    "parts": [{"text": full_prompt}]
-                }]
-            }
+            # --- Call Groq API ---
+            client = Groq(api_key=GROQ_API_KEY)
             
-            response = requests.post(GEMINI_URL, json=payload)
+            chat_completion = client.chat.completions.create(
+                messages=messages,
+                model="llama-3.3-70b-versatile",
+            )
             
-            if response.status_code != 200:
-                print(f"Gemini Error: {response.text}")
-                return Response({"error": "AI Service Unavailable"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                
-            data = response.json()
-            ai_response = data.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', 'Sorry, I could not generate a response.')
+            ai_response = chat_completion.choices[0].message.content or "Sorry, I could not generate a response."
             
             # --- gTTS Audio Generation ---
             try:

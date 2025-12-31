@@ -23,9 +23,7 @@ function App() {
             <Route
               path="/career-guide"
               element={
-                <ProtectedRoute>
-                  <CareerGuide />
-                </ProtectedRoute>
+                <CareerGuide />
               }
             />
             <Route path="/resume-builder" element={<ResumeBuilder />} />
