@@ -1,0 +1,1 @@
+{"questions":["Tell me about yourself","What is your preferred programming language and why?","How do you ensure your code is scalable and maintainable?","Describe a challenging technical bug you recently resolved.","How do you handle a situation where you disagree with a teammate's technical approach?"]}

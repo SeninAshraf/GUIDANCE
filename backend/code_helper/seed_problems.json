@@ -1,0 +1,65 @@
+[
+    {
+        "title": "Reverse String",
+        "content": "Given a string s, write a function that reverses the string.",
+        "difficulty": "Easy",
+        "category": "strings",
+        "tags": "String, Two Pointers"
+    },
+    {
+        "title": "Palindrome Check",
+        "content": "Given a string, check if it reads the same forward and backward.",
+        "difficulty": "Easy",
+        "category": "strings",
+        "tags": "String, Logic"
+    },
+    {
+        "title": "Valid Anagram",
+        "content": "Check if two strings contain the exact same characters.",
+        "difficulty": "Easy",
+        "category": "strings",
+        "tags": "String, Sorting"
+    },
+    {
+        "title": "Length of Last Word",
+        "content": "Find the length of the last word in a sentence.",
+        "difficulty": "Easy",
+        "category": "strings",
+        "tags": "String"
+    },
+    {
+        "title": "Select All Users",
+        "content": "Write a SQL query to select all columns from the 'Users' table.",
+        "difficulty": "Easy",
+        "category": "sql",
+        "tags": "SQL, Select"
+    },
+    {
+        "title": "Find Active Customers",
+        "content": "Write a SQL query to find all customers where 'is_active' is TRUE.",
+        "difficulty": "Easy",
+        "category": "sql",
+        "tags": "SQL, Where"
+    },
+    {
+        "title": "Count Employees",
+        "content": "Write a SQL query to count how many employees are in the 'Employees' table.",
+        "difficulty": "Easy",
+        "category": "sql",
+        "tags": "SQL, Count"
+    },
+    {
+        "title": "Simple Counter",
+        "content": "Create a loop that counts from 1 to 5.",
+        "difficulty": "Easy",
+        "category": "logic",
+        "tags": "Loop, Math"
+    },
+    {
+        "title": "Find Max Number",
+        "content": "Given a list of numbers, find the largest one.",
+        "difficulty": "Easy",
+        "category": "logic",
+        "tags": "Array, Logic"
+    }
+]
