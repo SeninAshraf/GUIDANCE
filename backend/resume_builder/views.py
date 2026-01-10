@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -75,6 +75,4 @@ class GenerateResumeView(APIView):
         doc.build(story)
         buffer.seek(0)
         
-        response = HttpResponse(buffer, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{name.replace(" ", "_")}_Resume.pdf"'
-        return response
+        return FileResponse(buffer, as_attachment=True, filename=f"{name.replace(' ', '_')}_Resume.pdf", content_type='application/pdf')

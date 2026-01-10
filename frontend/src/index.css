@@ -3,86 +3,70 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Safe selection color definition */
+    --lime-selection: #ccff00;
+    --lime-selection-bg: rgba(204,255,0,0.3);
+  }
+
+  /* Light Theme Defaults */
+  :root {
+    --bg-primary: #f5f5f7;
+    --text-primary: #1d1d1f;
+    --text-secondary: #86868b;
+    --card-bg: rgba(255, 255, 255, 0.8);
+    --card-border: rgba(0, 0, 0, 0.1);
+    --input-bg: rgba(0, 0, 0, 0.05);
+    --nav-bg: rgba(255, 255, 255, 0.8);
+  }
+
+  /* Dark Theme Overrides */
+  .dark {
+    --bg-primary: #000000;
+    --text-primary: #f5f5f7;
+    --text-secondary: #86868b;
+    --card-bg: rgba(28, 28, 30, 0.8);
+    --card-border: rgba(255, 255, 255, 0.1);
+    --input-bg: #1c1c1e;
+    --nav-bg: rgba(28, 28, 30, 0.8);
+  }
+
   body {
-    @apply bg-[#030712] text-white selection:bg-purple-500 selection:text-white;
+    @apply bg-[var(--bg-primary)] text-[var(--text-primary)] antialiased transition-colors duration-300;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
 }
 
 @layer components {
 
-  /* 
-       Premium Background: Deep Space with Subtle Gradient 
-       Use this on the main wrapper of every page or App.js
-    */
-  .premium-bg {
-    @apply min-h-screen w-full bg-[#030712] relative overflow-hidden;
-    background-image: radial-gradient(ellipse 80% 80% at 50% -20%, rgba(120, 119, 198, 0.3), rgba(255, 255, 255, 0));
+  /* Apple-Style Glass Card */
+  .apple-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    @apply rounded-2xl shadow-xl backdrop-blur-xl transition-all duration-300;
   }
 
-  /* 
-       Glass Card: The core container for content
-       Replaces: bg-gray-800 border-gray-700
-    */
-  .glass-card {
-    @apply bg-gray-900/40 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl;
+  .apple-card:hover {
+    @apply transform scale-[1.01];
   }
 
-  /* 
-       Glass Card Hover: Interactive elements
-    */
-  .glass-card-hover {
-    @apply glass-card hover:bg-gray-800/60 transition-all duration-300 hover:border-white/20 hover:shadow-purple-500/10;
+  /* Buttons */
+  .btn-lime {
+    @apply bg-[#ccff00] text-black font-bold px-6 py-3 rounded-full hover:bg-[#b3e600] active:scale-95 transition-all shadow-[0_0_20px_rgba(204,255,0,0.3)];
   }
 
-  /* 
-       Input Fields: Textareas, Inputs
-    */
-  .input-premium {
-    @apply bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all;
+  .btn-glass {
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+    @apply font-medium px-6 py-3 rounded-full backdrop-blur-md transition-all border border-[var(--card-border)];
   }
 
-  /* 
-       Primary Button: Gradients 
-    */
-  .btn-primary {
-    @apply bg-gradient-to-r from-blue-600 via-purple-600 to-purple-800 text-white font-bold py-3 px-6 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
+  .btn-glass:hover {
+    background-color: var(--card-border);
   }
 
-  /* 
-       Secondary/Ghost Button 
-    */
-  .btn-ghost {
-    @apply bg-white/5 border border-white/10 text-gray-300 font-medium py-3 px-6 rounded-xl hover:bg-white/10 hover:text-white transition-all;
-  }
-
-  /* Animation Utilities */
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
-  }
-
-  .animate-fade-in-up {
-    animation: fadeInUp 0.5s ease-out forwards;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  /* Text Gradients */
+  .text-gradient-lime {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#ccff00] to-green-400;
   }
 }

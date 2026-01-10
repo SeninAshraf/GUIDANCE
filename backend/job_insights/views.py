@@ -1,12 +1,13 @@
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 import requests
 from datetime import datetime
 import os
 
 class JobInsightsView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         """
         Fetch, Filter, and Score jobs based on user priority.

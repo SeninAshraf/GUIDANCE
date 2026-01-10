@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 import random
 import os
 import time
@@ -9,41 +10,100 @@ import json
 import re
 
 # Initialize Groq Client
+# Initialize Groq Client
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
-GROQ_MODEL = "llama-3.3-70b-versatile" 
+GROQ_MODEL = "llama-3.1-8b-instant" # Switched to faster model
 
 # --- Global Dataset Cache ---
 # --- Global Dataset Cache ---
-problems_data = None
+# --- Global Dataset Cache ---
+leetcode_df = None
+seed_problems = None
 
-def load_problems(category=None):
-    global problems_data
-    if problems_data is None:
+def load_problems(category='all', difficulty='beginner'):
+    global leetcode_df, seed_problems
+    
+    problems = []
+    
+    # 1. Try Loading CSV first
+    try:
+        if leetcode_df is None:
+            csv_path = os.path.join(os.path.dirname(__file__), '../../leetcode.csv')
+            if os.path.exists(csv_path):
+                import pandas as pd
+                print("Loading LeetCode CSV...")
+                leetcode_df = pd.read_csv(csv_path)
+                print(f"LeetCode CSV Loaded: {len(leetcode_df)} rows")
+            else:
+                print("leetcode.csv not found.")
+                
+        if leetcode_df is not None:
+            # Map Difficulty
+            diff_map = {'beginner': 'Easy', 'medium': 'Medium', 'hard': 'Hard'}
+            target_diff = diff_map.get(difficulty, 'Easy')
+            
+            # Filter by Difficulty
+            filtered = leetcode_df[leetcode_df['difficulty'] == target_diff]
+            
+            # Filter by Category (Topic)
+            if category and category != 'all':
+                # Simple keyword matching in 'related_topics' or 'tags'
+                # Creating a mask for topics
+                topic_map = {
+                    'strings': 'String',
+                    'sql': 'Database',
+                    'logic': 'Array' # Default logic to Array/Math if not specific
+                }
+                target_topic = topic_map.get(category, '')
+                if target_topic:
+                     # Filter rows where related_topics contains the target_topic
+                     filtered = filtered[filtered['related_topics'].fillna('').str.contains(target_topic, case=False)]
+            
+            # Convert to List of Dicts
+            if not filtered.empty:
+                # Sample 50 to avoid huge list processing, then pick one later
+                sample_df = filtered.sample(n=min(len(filtered), 50))
+                for _, row in sample_df.iterrows():
+                    problems.append({
+                        'title': row.get('title'),
+                        'content': row.get('description'),
+                        'category': category if category != 'all' else 'logic' 
+                    })
+                return problems
+                
+    except Exception as e:
+        print(f"CSV Load Error: {e}")
+
+    # 2. Fallback to Seed JSON
+    if seed_problems is None:
         try:
             json_path = os.path.join(os.path.dirname(__file__), 'seed_problems.json')
-            print("SPEED MODE: Loading local seed_problems.json...")
             with open(json_path, 'r') as f:
-                problems_data = json.load(f)
-            print(f"Loaded {len(problems_data)} problems from local seed.")
+                seed_problems = json.load(f)
         except Exception as e:
-            print(f"Dataset Load Error: {e}")
+            print(f"Seed Load Error: {e}")
             return []
             
+    # Filter Seed
+    filtered_seed = [p for p in seed_problems if p.get('difficulty') == difficulty]
     if category and category != 'all':
-        return [p for p in problems_data if p.get('category') == category]
-    return problems_data
+        filtered_seed = [p for p in filtered_seed if p.get('category') == category]
+        
+    return filtered_seed
 
 class MicroProblemView(APIView):
+    permission_classes = [AllowAny]
     def get(self, request):
+        print("MicroProblemView: Received request")
         # Get Params
         category = request.GET.get('category', 'all').lower()
         difficulty = request.GET.get('difficulty', 'beginner').lower()
         
-        data = load_problems(category)
+        data = load_problems(category, difficulty)
         if not data:
              # Fallback to all if category empty
-             data = load_problems(None)
+             data = load_problems(None, difficulty)
              if not data:
                 return Response({"error": "Dataset unavailable"}, status=500)
             
@@ -60,53 +120,71 @@ class MicroProblemView(APIView):
             
             raw_content = f"Title: {row_title}\nDescription: {row_desc}\nCategory: {row_cat}"
             
-            # Context Switch for SQL vs Python
+            # LogicQuest Persona Mapping
+            realm_map = {
+                'strings': 'Scrolls of String',
+                'sql': 'The Great Archives',
+                'logic': 'The Logic Labyrinth'
+            }
+            current_realm = realm_map.get(row_cat, 'The Code Wilds')
             target_lang = "SQL" if row_cat == 'sql' else "Python"
-            
-            # Define Difficulty Rules
+
+            # PERSONA: LogicQuest AI
+            role_desc = (
+                "You are LogicQuest AI, a mystical game mentor designed to strengthen a player's logical thinking. "
+                "Your primary goal is NOT to give direct code solutions immediately, but to teach the *reasoning* behind them. "
+                "Always teach logic before syntax. Use metaphors relevant to the realm."
+            )
+
+            # Difficulty & Style Adjustments
             if difficulty == 'hard':
-                role_desc = "You are a strict technical interviewer."
-                style_desc = f"Teach advanced {target_lang} efficiency."
+                style_desc = f"Realm: {current_realm} (Advanced depth). Metaphor: High-stakes mission."
                 rules = (
-                    "1. TITLE: Professional Technical Title.\n"
-                    "2. STORY: A complex real-world system optimization scenario.\n"
-                    "3. CONCEPT: Advanced Algorithm/Query Optimization.\n"
-                    f"4. STEPS: 5-8 lines of {target_lang}.\n"
-                    "5. EXPLANATION: Technical deep-dive."
+                    "1. TITLE: Epic mission title (e.g., 'Repair the Kinetic Shield').\n"
+                    "2. STORY: Complex scenario requiring optimization or edge-case handling.\n"
+                    "3. CONCEPT: Advanced Algorithm/logic.\n"
+                    f"4. STEPS: 5-8 lines of {target_lang}. Focus on efficiency.\n"
+                    "5. EXPLANATION: Deep dive into the 'why'."
                 )
             elif difficulty == 'medium':
-                role_desc = "You are a standard coding tutor."
-                style_desc = f"Teach standard {target_lang} concepts."
+                style_desc = f"Realm: {current_realm} (Standard journey). Metaphor: Practical builder/explorer."
                 rules = (
-                    "1. TITLE: Standard Problem Title.\n"
-                    "2. STORY: A practical application scenario.\n"
-                    "3. CONCEPT: Standard Concept.\n"
+                    "1. TITLE: Adventure title (e.g., 'Bridge the Data Gap').\n"
+                    "2. STORY: Practical scenario with a clear goal.\n"
+                    "3. CONCEPT: Standard pattern.\n"
                     f"4. STEPS: 4-6 lines of {target_lang}.\n"
-                    "5. EXPLANATION: Clear logic explanation."
+                    "5. EXPLANATION: Clear logic connection."
                 )
             else: # beginner
-                role_desc = "You are an expert friendly mentor for kids."
-                style_desc = "Teach using simple analogies."
+                style_desc = f"Realm: {current_realm} (Training grounds). Metaphor: Fun, magical, tactile."
                 rules = (
-                    "1. TITLE & STORY: a fun, child-friendly analogy. Avoid jargon.\n"
-                    "2. CONCEPT: One simple concept.\n"
-                    f"3. STEPS: 3-5 logical single lines of {target_lang} code.\n"
-                    "4. EXPLANATION: SIMPLE explanation of *why* we need this line."
+                    "1. TITLE: Fun title (e.g., 'The Mirror Spell').\n"
+                    "2. STORY: Very simple, relatable analogy (cooking, magic, legos).\n"
+                    "3. CONCEPT: Core building block.\n"
+                    f"4. STEPS: 3-5 simple lines of {target_lang}.\n"
+                    "5. EXPLANATION: Explain like I'm 10 years old."
                 )
 
             # Construct Prompt
             prompt = (
-                f"{role_desc} {style_desc} "
-                f"Rewrite the following problem into a guided step-by-step {target_lang} coding lesson.\n"
-                f"RAW PROBLEM: {raw_content}\n"
-                f"DIFFICULTY LEVEL: {difficulty.upper()}\n\n"
-                "Rules:\n"
+                f"{role_desc}\n"
+                f"CONTEXT: Player is in {current_realm}. Difficulty: {difficulty.upper()}.\n"
+                f"TASK: Rewrite the following problem into a guided {target_lang} quest.\n"
+                f"RAW PROBLEM: {raw_content}\n\n"
+                "GAME RULES:\n"
+                "1. Teach logic before syntax.\n"
+                "2. Prefer reasoning and step-by-step thinking.\n"
+                "3. **IMP: The user must PLAN before they code.**\n"
+                "4. Maintain a game-like, motivating tone.\n\n"
+                "OUTPUT FORMAT RULES (Strict JSON):\n"
                 f"{rules}\n"
-                "COMMON RULES:\n"
-                "   - 'goal': A short goal.\n"
-                f"   - 'code_line': The exact single line of {target_lang} code. MUST match the story (e.g. if story is School Club, table is 'Members', not 'Employees').\n"
+                "COMMON JSON FIELDS:\n"
+                "   - 'goal': A short immediate objective for the step.\n"
+                "   - 'logic_pseudocode': A clear, non-code description of the logic for this step (e.g., 'Initialize a list to store results').\n"
+                f"   - 'code_line': The exact single line of {target_lang} code.\n"
                 "   - 'step_id': Integer 1, 2, 3...\n"
-                "   - 'simple_explanation': A final summary of the solution logic in plain English.\n"
+                "   - 'explanation': A Mentor's hint or reasoning (WHY we do this).\n"
+                "   - 'simple_explanation': A final victory summary.\n\n"
                 "RETURN JSON ONLY:\n"
                 "{\n"
                 "  \"title\": \"...\",\n"
@@ -115,7 +193,7 @@ class MicroProblemView(APIView):
                 "  \"language\": \"" + target_lang + "\",\n"
                 "  \"simple_explanation\": \"...\",\n"
                 "  \"steps\": [\n"
-                "    { \"step_id\": 1, \"goal\": \"...\", \"explanation\": \"...\", \"code_line\": \"...\" }\n"
+                "    { \"step_id\": 1, \"goal\": \"...\", \"logic_pseudocode\": \"...\", \"code_line\": \"...\", \"explanation\": \"...\" }\n"
                 "  ]\n"
                 "}"
             )
@@ -123,18 +201,30 @@ class MicroProblemView(APIView):
             # Measure AI Latency
             t0 = time.time()
             
-            completion = client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[
-                    {"role": "system", "content": "You are a helpful JSON assistant."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=1024,
-                top_p=1,
-                stream=False,
-                stop=None,
-            )
+            # Retry Logic for Rate Limits
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    completion = client.chat.completions.create(
+                        model=GROQ_MODEL,
+                        messages=[
+                            {"role": "system", "content": "You are a helpful JSON assistant. You must output strictly valid JSON."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.5, 
+                        max_tokens=1024,
+                        top_p=1,
+                        stream=False,
+                        response_format={"type": "json_object"},
+                        stop=None,
+                    )
+                    break # Success
+                except Exception as e:
+                    if "rate_limit" in str(e).lower() and attempt < max_retries - 1:
+                        print(f"Rate limit hit. Retrying in 2s... (Attempt {attempt+1}/{max_retries})")
+                        time.sleep(2)
+                    else:
+                        raise e
             
             print(f"Groq Latency: {time.time() - t0:.2f}s")
             

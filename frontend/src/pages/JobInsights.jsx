@@ -1,8 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Briefcase, Code as CodeIcon, Filter, ExternalLink, Linkedin, Sparkles, TrendingUp, DollarSign } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 
 const JobInsights = () => {
+    // const { user } = useAuth(); // Auth decoupled for demo
+
     // --- Job Search State ---
     const [jobs, setJobs] = useState([]);
     const [summary, setSummary] = useState(null);
@@ -25,10 +29,12 @@ const JobInsights = () => {
         setLoadingJobs(true);
         try {
             const techList = techStack.split(',').map(t => t.trim()).filter(t => t);
-
             const res = await fetch('http://localhost:8000/api/insights/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                    // 'Authorization': `Token ${token}` // Removed for open access
+                },
                 body: JSON.stringify({
                     priority: { role, location, tech_stack: techList },
                     sort_by: sortBy
@@ -47,12 +53,9 @@ const JobInsights = () => {
     // --- Market Analysis Logic ---
     const fetchMarketAnalysis = async (query) => {
         if (!query.trim()) return;
-
         setLoadingAnalysis(true);
         setAnalysisError(null);
         setMarketAnalysis(null);
-
-        // 1. Check Local Storage Cache
         const cacheKey = `market_insight_${query.toLowerCase().trim()}`;
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
@@ -64,15 +67,15 @@ const JobInsights = () => {
         try {
             const res = await fetch('http://localhost:8000/api/insights/market/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                    // 'Authorization': `Token ${token}` // Removed for open access
+                },
                 body: JSON.stringify({ query: query })
             });
 
             if (!res.ok) throw new Error("Failed to fetch analysis");
-
             const data = await res.json();
-
-            // Allow user to try again if data is empty or bad
             if (data.error) throw new Error(data.error);
 
             setMarketAnalysis(data);
@@ -95,22 +98,26 @@ const JobInsights = () => {
     }, []);
 
     return (
-        <div className="flex flex-col md:flex-row min-h-screen bg-gray-900 text-white pt-6">
+        <div className="flex flex-col lg:flex-row gap-8 min-h-screen pt-4">
 
-            {/* Sidebar Filters (Jobs) */}
-            <div className="w-full md:w-1/4 p-6 border-r border-white/10 bg-black/20 backdrop-blur-xl h-fit md:h-[calc(100vh-64px)] md:sticky md:top-16 overflow-y-auto">
-                <div className="flex items-center space-x-2 mb-6 text-blue-400">
+            {/* Sidebar Filters (Glass Panel) */}
+            <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="w-full lg:w-1/4 h-fit apple-card p-6 lg:sticky lg:top-8"
+            >
+                <div className="flex items-center space-x-2 mb-6 text-lime-700 dark:text-[#ccff00]">
                     <Filter className="w-5 h-5" />
-                    <h2 className="text-xl font-bold">Job Filters</h2>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Filters</h2>
                 </div>
 
                 <div className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-2">Role Type</label>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Role</label>
                         <select
                             value={role}
                             onChange={(e) => setRole(e.target.value)}
-                            className="input-premium w-full appearance-none cursor-pointer"
+                            className="bg-[#1c1c1e] text-white w-full rounded-xl px-4 py-3 border border-white/10 outline-none focus:border-[#ccff00]/50 appearance-none"
                         >
                             <option value="backend">Backend Developer</option>
                             <option value="frontend">Frontend Developer</option>
@@ -122,239 +129,203 @@ const JobInsights = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-2">Tech Stack</label>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Tech Stack</label>
                         <div className="relative">
-                            <CodeIcon className="absolute left-3 top-3.5 w-5 h-5 text-gray-500" />
+                            <CodeIcon className="absolute left-3 top-3.5 w-4 h-4 text-gray-500" />
                             <input
                                 type="text"
                                 value={techStack}
                                 onChange={(e) => setTechStack(e.target.value)}
                                 placeholder="python, react, aws"
-                                className="input-premium pl-10 w-full"
+                                className="bg-gray-50 dark:bg-[#1c1c1e] text-gray-900 dark:text-white pl-10 w-full rounded-xl px-4 py-3 border border-gray-200 dark:border-white/10 outline-none focus:border-lime-500/50 dark:focus:border-[#ccff00]/50"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-2">Location</label>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Location</label>
                         <div className="relative">
-                            <MapPin className="absolute left-3 top-3.5 w-5 h-5 text-gray-500" />
+                            <MapPin className="absolute left-3 top-3.5 w-4 h-4 text-gray-500" />
                             <input
                                 type="text"
                                 value={location}
                                 onChange={(e) => setLocation(e.target.value)}
-                                placeholder="Anywhere"
-                                className="input-premium pl-10 w-full"
+                                placeholder="Remote"
+                                className="bg-[#1c1c1e] text-white pl-10 w-full rounded-xl px-4 py-3 border border-white/10 outline-none focus:border-[#ccff00]/50"
                             />
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-2">Sort By</label>
-                        <div className="flex space-x-2 bg-black/20 p-1 rounded-xl border border-white/5">
+                    <div className="pt-2">
+                        <div className="flex bg-[#1c1c1e] p-1 rounded-xl border border-white/10 mb-4">
                             <button
                                 onClick={() => setSortBy('relevance')}
-                                className={`flex-1 py-2 text-sm rounded-lg transition ${sortBy === 'relevance' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                                className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition ${sortBy === 'relevance' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
                             >
                                 Relevance
                             </button>
                             <button
                                 onClick={() => setSortBy('recent')}
-                                className={`flex-1 py-2 text-sm rounded-lg transition ${sortBy === 'recent' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                                className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition ${sortBy === 'recent' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
                             >
                                 Recent
                             </button>
                         </div>
-                    </div>
 
-                    <button
-                        onClick={fetchInsights}
-                        className="btn-primary w-full flex justify-center items-center gap-2"
-                    >
-                        Find Jobs 🚀
-                    </button>
+                        <button
+                            onClick={fetchInsights}
+                            className="btn-lime w-full flex justify-center items-center gap-2"
+                        >
+                            Update Feed
+                        </button>
+                    </div>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* Main Content Area */}
-            <div className="flex-1 p-6 md:p-10 overflow-y-auto">
-                <div className="max-w-4xl mx-auto space-y-12">
+            {/* Main Feed */}
+            <div className="flex-1 space-y-8 pb-10">
 
-                    {/* --- NEW SECTION: MARKET ANALYSIS (Top) --- */}
-                    <div className="glass-card p-8 md:p-10 relative overflow-hidden">
-                        {/* Background Accent */}
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20"></div>
+                {/* Market Analysis Card (Hero) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="apple-card p-8 md:p-10 relative overflow-hidden"
+                >
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-[#ccff00] rounded-full blur-[120px] opacity-10 pointer-events-none"></div>
 
-                        <div className="relative z-10">
-                            <div className="flex items-center space-x-3 mb-6">
-                                <Sparkles className="w-6 h-6 text-yellow-400" />
-                                <h1 className="text-2xl font-bold text-white">AI Market Researcher</h1>
-                            </div>
-
-                            <p className="text-gray-400 mb-8 max-w-2xl">
-                                Get instant, data-driven insights on any role. Discover salary ranges, demand trends, and top skills.
-                            </p>
-
-                            <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mb-8">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        value={marketQuery}
-                                        onChange={(e) => setMarketQuery(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && fetchMarketAnalysis(marketQuery)}
-                                        placeholder="Research a role (e.g., 'Flutter Developer', 'Product Manager')"
-                                        className="input-premium pl-12 w-full"
-                                    />
-                                </div>
-                                <button
-                                    onClick={() => fetchMarketAnalysis(marketQuery)}
-                                    disabled={loadingAnalysis}
-                                    className="btn-primary"
-                                >
-                                    {loadingAnalysis ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : 'Analyze'}
-                                </button>
-                            </div>
-
-                            {analysisError && (
-                                <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl mb-6">
-                                    {analysisError}
-                                </div>
-                            )}
-
-                            {marketAnalysis && (
-                                <div className="animate-fade-in-up">
-                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-6 border-b border-white/10">
-                                        <h2 className="text-3xl font-bold text-white mb-4 md:mb-0">{marketQuery || "Result"}</h2>
-                                        <button
-                                            onClick={() => handleLinkedinSearch(marketQuery)}
-                                            className="btn-ghost text-sm py-2 px-4 flex items-center"
-                                        >
-                                            <Linkedin className="w-4 h-4 mr-2" />
-                                            View on LinkedIn
-                                        </button>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                        <div className="p-6 bg-black/20 rounded-xl border border-white/5">
-                                            <div className="flex items-center text-green-400 mb-2">
-                                                <DollarSign className="w-5 h-5 mr-2" />
-                                                <span className="font-bold">Avg. Salary</span>
-                                            </div>
-                                            <p className="text-2xl font-bold text-white">{marketAnalysis.avg_salary}</p>
-                                        </div>
-                                        <div className="p-6 bg-black/20 rounded-xl border border-white/5">
-                                            <div className="flex items-center text-orange-400 mb-2">
-                                                <TrendingUp className="w-5 h-5 mr-2" />
-                                                <span className="font-bold">Demand Trend</span>
-                                            </div>
-                                            <p className="text-2xl font-bold text-white">{marketAnalysis.hiring_trends}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="mb-6 p-6 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                                        <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider mb-2">AI Role Summary</h3>
-                                        <p className="text-gray-300 leading-relaxed text-lg">{marketAnalysis.role_summary}</p>
-                                    </div>
-
-                                    <div>
-                                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Top Required Skills</h3>
-                                        <div className="flex flex-wrap gap-2">
-                                            {marketAnalysis.top_skills.map((skill, idx) => (
-                                                <span key={idx} className="px-3 py-1 bg-white/10 text-gray-200 rounded-full text-sm border border-white/10">
-                                                    {skill}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {!marketAnalysis && !loadingAnalysis && !analysisError && (
-                                <div className="text-center py-8 text-gray-500">
-                                    <p>Try searching for "Flutter Developer" or "Data Scientist" to see AI insights.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* --- EXISTING SECTION: JOB LISTINGS --- */}
-                    <div>
-                        <div className="mb-6 flex items-end justify-between">
-                            <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">Active Job Listings</h1>
-                                {summary && (
-                                    <p className="text-gray-400">
-                                        Found <span className="text-green-400 font-bold">{summary.software_jobs_found}</span> jobs matching your filters.
-                                    </p>
-                                )}
-                            </div>
+                    <div className="relative z-10">
+                        <div className="flex items-center space-x-3 mb-6">
+                            <Sparkles className="w-5 h-5 text-lime-700 dark:text-[#ccff00]" />
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Market Intelligence</h1>
                         </div>
 
-                        {loadingJobs ? (
-                            <div className="space-y-4 animate-pulse">
-                                {[1, 2, 3].map(i => (
-                                    <div key={i} className="h-40 glass-card rounded-xl opacity-50"></div>
-                                ))}
+                        <div className="flex flex-col md:flex-row gap-3 mb-8">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
+                                <input
+                                    type="text"
+                                    value={marketQuery}
+                                    onChange={(e) => setMarketQuery(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && fetchMarketAnalysis(marketQuery)}
+                                    placeholder="Analyze a role (e.g. 'Senior React Dev')"
+                                    className="bg-gray-50 dark:bg-[#1c1c1e] text-gray-900 dark:text-white pl-12 w-full rounded-2xl px-4 py-3 border border-gray-200 dark:border-white/10 outline-none focus:border-lime-500/50 dark:focus:border-[#ccff00]/50 ml-0 hover:bg-gray-100 dark:hover:bg-[#2c2c2e] transition-colors"
+                                />
                             </div>
-                        ) : (
-                            <div className="space-y-6">
-                                {jobs.map((job, idx) => (
-                                    <div key={idx} className="glass-card-hover p-8 relative group">
-                                        {/* Relevance Badge */}
-                                        {job.priority_score > 0.8 && (
-                                            <div className="absolute top-0 right-0 bg-green-500/20 text-green-400 text-xs font-bold px-3 py-1 rounded-bl-xl border-l border-b border-green-500/20 shadow-lg shadow-green-500/10">
-                                                {(job.priority_score * 100).toFixed(0)}% Match
-                                            </div>
-                                        )}
+                            <button
+                                onClick={() => fetchMarketAnalysis(marketQuery)}
+                                disabled={loadingAnalysis}
+                                className="btn-glass px-8 py-3 rounded-2xl font-bold"
+                            >
+                                {loadingAnalysis ? 'Analyzing...' : 'Insight'}
+                            </button>
+                        </div>
 
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <h3 className="text-2xl font-bold text-white group-hover:text-blue-400 transition mb-1">{job.job_title}</h3>
-                                                <p className="text-gray-400 font-medium text-lg">{job.company}</p>
-                                            </div>
-                                        </div>
+                        {analysisError && <div className="p-4 bg-red-500/10 text-red-400 rounded-xl mb-4 border border-red-500/20">{analysisError}</div>}
 
-                                        <div className="flex flex-wrap gap-3 mb-8 text-sm text-gray-300">
-                                            <div className="flex items-center px-4 py-2 bg-black/40 rounded-full border border-white/5">
-                                                <MapPin className="w-3 h-3 mr-2 text-blue-400" />
-                                                {job.location}
-                                            </div>
-                                            <div className="flex items-center px-4 py-2 bg-black/40 rounded-full border border-white/5">
-                                                <Briefcase className="w-3 h-3 mr-2 text-purple-400" />
-                                                {job.job_type.replace('_', ' ')}
-                                            </div>
-                                            <div className="flex items-center px-4 py-2 bg-black/40 rounded-full border border-white/5">
-                                                <span className="text-gray-400 mr-2">📅</span>
-                                                {new Date(job.published_on).toLocaleDateString()}
-                                            </div>
-                                        </div>
+                        {marketAnalysis && (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                                    <h2 className="text-3xl font-bold">{marketQuery}</h2>
+                                    <button onClick={() => handleLinkedinSearch(marketQuery)} className="text-xs text-blue-400 hover:underline flex items-center">
+                                        View on LinkedIn <ExternalLink className="w-3 h-3 ml-1" />
+                                    </button>
+                                </div>
 
-                                        <div className="flex items-center justify-between mt-auto">
-                                            <span className="text-sm text-gray-500">Source: Remotive</span>
-                                            <a
-                                                href={job.apply_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="btn-primary text-sm py-2 px-6 flex items-center"
-                                            >
-                                                Apply Now <ExternalLink className="w-4 h-4 ml-2" />
-                                            </a>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-[#1c1c1e] p-5 rounded-2xl border border-white/5">
+                                        <div className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Salary Range</div>
+                                        <div className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                                            <DollarSign className="w-5 h-5 mr-1 text-green-600 dark:text-green-400" /> {marketAnalysis.avg_salary}
                                         </div>
                                     </div>
-                                ))}
-                                {jobs.length === 0 && (
-                                    <div className="text-center py-20 glass-card rounded-xl">
-                                        <p className="text-gray-400 text-lg">No jobs found matching your criteria.</p>
+                                    <div className="bg-[#1c1c1e] p-5 rounded-2xl border border-white/5">
+                                        <div className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Demand</div>
+                                        <div className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                                            <TrendingUp className="w-5 h-5 mr-1 text-orange-600 dark:text-orange-400" /> {marketAnalysis.hiring_trends}
+                                        </div>
                                     </div>
-                                )}
-                            </div>
+                                </div>
+
+                                <div className="bg-lime-50 dark:bg-[#ccff00]/5 p-6 rounded-2xl border border-lime-200 dark:border-[#ccff00]/10">
+                                    <h3 className="text-lime-800 dark:text-[#ccff00] text-xs font-bold uppercase tracking-wider mb-2">Summary</h3>
+                                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">{marketAnalysis.role_summary}</p>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-3">Top Skills</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {marketAnalysis.top_skills.map((skill, idx) => (
+                                            <span key={idx} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-sm text-gray-300">
+                                                {skill}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </motion.div>
                         )}
                     </div>
+                </motion.div>
+
+                {/* Job List */}
+                <div>
+                    <div className="flex justify-between items-end mb-4 px-2">
+                        <h2 className="text-2xl font-bold">Latest Opportunities</h2>
+                        {summary && <span className="text-sm text-[#ccff00] font-bold">{summary.software_jobs_found} Matches</span>}
+                    </div>
+
+                    {loadingJobs ? (
+                        <div className="space-y-4">
+                            {[1, 2, 3].map(i => <div key={i} className="h-32 bg-[#1c1c1e] rounded-3xl animate-pulse" />)}
+                        </div>
+                    ) : (
+                        <div className="grid gap-4">
+                            {jobs.map((job, idx) => (
+                                <motion.div
+                                    key={idx}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ delay: idx * 0.05 }}
+                                    className="group apple-card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-[#2c2c2e]"
+                                >
+                                    <div>
+                                        <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-lime-600 dark:group-hover:text-[#ccff00] transition-colors">{job.job_title}</h3>
+                                        <p className="text-lg text-gray-600 dark:text-gray-400 font-medium mb-2">{job.company}</p>
+
+                                        <div className="flex flex-wrap gap-2 text-sm text-gray-500">
+                                            <span className="flex items-center"><MapPin className="w-3 h-3 mr-1" /> {job.location}</span>
+                                            <span className="w-1 h-1 bg-gray-600 rounded-full self-center" />
+                                            <span>{job.job_type.replace('_', ' ')}</span>
+                                            <span className="w-1 h-1 bg-gray-600 rounded-full self-center" />
+                                            <span>{new Date(job.published_on).toLocaleDateString()}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col items-end gap-2">
+                                        {job.priority_score > 0.8 && (
+                                            <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded-md border border-green-500/20">
+                                                {(job.priority_score * 100).toFixed(0)}% Match
+                                            </span>
+                                        )}
+                                        <a
+                                            href={job.apply_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-6 py-2 rounded-full border border-white/10 hover:bg-white hover:text-black transition-all font-bold text-sm bg-white/5"
+                                        >
+                                            Apply
+                                        </a>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    )}
                 </div>
+
             </div>
         </div>
     );
 };
 
 export default JobInsights;
+

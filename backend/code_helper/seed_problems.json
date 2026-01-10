@@ -1,65 +1,110 @@
 [
     {
-        "title": "Reverse String",
-        "content": "Given a string s, write a function that reverses the string.",
-        "difficulty": "Easy",
+        "title": "The Mirror Spell (Reverse String)",
+        "content": "Write a function that reverses a string. The input string is given as an array of characters.",
         "category": "strings",
-        "tags": "String, Two Pointers"
+        "difficulty": "beginner"
     },
     {
-        "title": "Palindrome Check",
-        "content": "Given a string, check if it reads the same forward and backward.",
-        "difficulty": "Easy",
+        "title": "Palindrome Scout",
+        "content": "A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward. Write a function to check this.",
         "category": "strings",
-        "tags": "String, Logic"
+        "difficulty": "beginner"
     },
     {
-        "title": "Valid Anagram",
-        "content": "Check if two strings contain the exact same characters.",
-        "difficulty": "Easy",
+        "title": "Anagram Alchemist",
+        "content": "Given two strings s and t, return true if t is an anagram of s, and false otherwise. An Anagram is a word or phrase formed by rearranging the letters of a different word or phrase.",
         "category": "strings",
-        "tags": "String, Sorting"
+        "difficulty": "medium"
     },
     {
-        "title": "Length of Last Word",
-        "content": "Find the length of the last word in a sentence.",
-        "difficulty": "Easy",
+        "title": "The Longest Reflection",
+        "content": "Given a string s, find the length of the longest substring without repeating characters.",
         "category": "strings",
-        "tags": "String"
+        "difficulty": "medium"
     },
     {
-        "title": "Select All Users",
-        "content": "Write a SQL query to select all columns from the 'Users' table.",
-        "difficulty": "Easy",
+        "title": "Rune Compression",
+        "content": "Given an array of characters, compress it. The length after compression must be always smaller than or equal to the original array. Every element of the array should be a character (not int) of length 1.",
+        "category": "strings",
+        "difficulty": "hard"
+    },
+    {
+        "title": "Pattern of the Ancients (Regex)",
+        "content": "Given an input string s and a pattern p, implement regular expression matching with support for '.' and '*'.",
+        "category": "strings",
+        "difficulty": "hard"
+    },
+    {
+        "title": "Scroll of Selection",
+        "content": "Write a SQL query to find the names of all employees who have a salary greater than 50000.",
         "category": "sql",
-        "tags": "SQL, Select"
+        "difficulty": "beginner"
     },
     {
-        "title": "Find Active Customers",
-        "content": "Write a SQL query to find all customers where 'is_active' is TRUE.",
-        "difficulty": "Easy",
+        "title": "The Missing ID",
+        "content": "Write a SQL query to find all customers who have never placed an order.",
         "category": "sql",
-        "tags": "SQL, Where"
+        "difficulty": "beginner"
     },
     {
-        "title": "Count Employees",
-        "content": "Write a SQL query to count how many employees are in the 'Employees' table.",
-        "difficulty": "Easy",
+        "title": "The Great Join",
+        "content": "Write a SQL query to report the product_name, year, and price for each sale_id in the Sales table.",
         "category": "sql",
-        "tags": "SQL, Count"
+        "difficulty": "medium"
     },
     {
-        "title": "Simple Counter",
-        "content": "Create a loop that counts from 1 to 5.",
-        "difficulty": "Easy",
+        "title": "Guild Leaders (Group By)",
+        "content": "Write a SQL query to find the number of employees in each department.",
+        "category": "sql",
+        "difficulty": "medium"
+    },
+    {
+        "title": "Top Earners (Window Function)",
+        "content": "Write a SQL query to find the employees who earn the top 3 salaries in each of the departments.",
+        "category": "sql",
+        "difficulty": "hard"
+    },
+    {
+        "title": "Consecutive Logins",
+        "content": "Write an SQL query to find determination of users who logged in for 5 or more consecutive days.",
+        "category": "sql",
+        "difficulty": "hard"
+    },
+    {
+        "title": "FizzBuzz Enchantment",
+        "content": "Given an integer n, return a string array answer (1-indexed) where: answer[i] == 'FizzBuzz' if i is divisible by 3 and 5. answer[i] == 'Fizz' if i is divisible by 3. answer[i] == 'Buzz' if i is divisible by 5.",
         "category": "logic",
-        "tags": "Loop, Math"
+        "difficulty": "beginner"
     },
     {
-        "title": "Find Max Number",
-        "content": "Given a list of numbers, find the largest one.",
-        "difficulty": "Easy",
+        "title": "Factorial Forge",
+        "content": "Write a function to calculate the factorial of a non-negative integer n.",
         "category": "logic",
-        "tags": "Array, Logic"
+        "difficulty": "beginner"
+    },
+    {
+        "title": "Fibonacci Spirals",
+        "content": "The Fibonacci numbers, commonly denoted F(n) form a sequence, called the Fibonacci sequence, such that each number is the sum of the two preceding ones, starting from 0 and 1. Calculate F(n).",
+        "category": "logic",
+        "difficulty": "medium"
+    },
+    {
+        "title": "Two Sum Totems",
+        "content": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+        "category": "logic",
+        "difficulty": "medium"
+    },
+    {
+        "title": "Prime Sieve",
+        "content": "Count the number of prime numbers less than a non-negative number, n.",
+        "category": "logic",
+        "difficulty": "hard"
+    },
+    {
+        "title": "Trapping Rain Water",
+        "content": "Given n non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining.",
+        "category": "logic",
+        "difficulty": "hard"
     }
 ]

@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import { Upload, Code, Users, Brain, ChevronRight, Video, Mic } from 'lucide-react';
+import { Upload, Code, Users, Brain, ChevronRight, Video, Mic, StopCircle, RefreshCw, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 
 const InterviewCoach = () => {
+    const { user } = useAuth();
+    const token = user?.token;
+
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const [isSessionActive, setIsSessionActive] = useState(false);
@@ -14,6 +19,7 @@ const InterviewCoach = () => {
     const [goodPostureCount, setGoodPostureCount] = useState(0);
     const [totalFrames, setTotalFrames] = useState(0);
     const [sessionStats, setSessionStats] = useState(null);
+    const [pdfUrl, setPdfUrl] = useState(null);
 
     // Resume & Questions
     const [jobRole, setJobRole] = useState(null);
@@ -202,10 +208,14 @@ const InterviewCoach = () => {
                     if (isCentered) {
                         setGoodPostureCount(prev => prev + 1);
                         setPostureScore(100);
-                        ctx.strokeStyle = '#00FF00'; // Green
+                        ctx.strokeStyle = '#ccff00'; // Lime
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = '#ccff00';
                     } else {
                         setPostureScore(prev => Math.max(0, prev - 1));
-                        ctx.strokeStyle = '#FF0000'; // Red
+                        ctx.strokeStyle = '#FF3B30'; // Red
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = '#FF3B30';
                     }
                     setTotalFrames(prev => prev + 1);
 
@@ -214,9 +224,9 @@ const InterviewCoach = () => {
                     ctx.strokeRect(canvas.width * 0.25, canvas.height * 0.15, canvas.width * 0.5, canvas.height * 0.7);
 
                     // Draw Nose Dot
-                    ctx.fillStyle = isCentered ? '#00FF00' : '#FF0000';
+                    ctx.fillStyle = isCentered ? '#ccff00' : '#FF3B30';
                     ctx.beginPath();
-                    ctx.arc(noseTip.x * canvas.width, noseTip.y * canvas.height, 5, 0, 2 * Math.PI);
+                    ctx.arc(noseTip.x * canvas.width, noseTip.y * canvas.height, 6, 0, 2 * Math.PI);
                     ctx.fill();
                 }
             }
@@ -260,12 +270,19 @@ const InterviewCoach = () => {
     // Kept for Resume Flow
     const fetchQuestions = async (body) => {
         try {
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Token ${token}`;
+            }
+
             const res = await fetch('http://127.0.0.1:8000/api/interview-coach/start/', {
-                method: 'POST', body: body
+                method: 'POST', body: body,
+                headers: headers
             });
             if (!res.ok) {
                 const errorData = await res.json();
-                throw new Error(errorData.error || "Backend Error");
+                console.error("Backend Error Data:", errorData);
+                throw new Error(errorData.detail || errorData.error || "Backend Error");
             }
 
             const data = await res.json();
@@ -341,9 +358,14 @@ const InterviewCoach = () => {
         setIsLoading(true);
 
         try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) {
+                headers['Authorization'] = `Token ${token}`;
+            }
+
             const response = await fetch('http://127.0.0.1:8000/api/interview-coach/end-session/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: headers,
                 body: JSON.stringify({
                     history: finalHistory,
                     stats: basicStats
@@ -352,8 +374,11 @@ const InterviewCoach = () => {
 
             if (response.ok) {
                 // Trigger PDF Download
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
+                const blobData = await response.blob();
+                const pdfBlob = new Blob([blobData], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(pdfBlob);
+                setPdfUrl(url); // Save for manual download
+
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = `Interview_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -366,13 +391,14 @@ const InterviewCoach = () => {
                     feedback: "Your comprehensive report has been downloaded! Check the PDF for detailed feedback on each answer."
                 });
             } else {
-                throw new Error("Failed to generate report");
+                const errData = await response.json();
+                throw new Error(errData.detail || errData.error || "Failed to generate report");
             }
         } catch (error) {
             console.error(error);
             setSessionStats({
                 ...basicStats,
-                feedback: "Session complete, but we couldn't generate the PDF report. (Backend offline or error)"
+                feedback: `Session complete, but PDF generation failed: ${error.message}`
             });
         } finally {
             setIsLoading(false);
@@ -382,180 +408,213 @@ const InterviewCoach = () => {
     // --- UI COMPONENTS ---
 
     const renderLandingPage = () => (
-        <div className="w-full max-w-5xl space-y-8 animate-fade-in-up">
-            <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 text-center mb-8">
-                AI Interview Coach <span className="text-white text-2xl ml-2">🎥</span>
-            </h1>
+        <div className="w-full max-w-5xl space-y-12 relative z-10">
+            <div className="text-center">
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lime-400/20 border border-lime-500/30 text-lime-700 dark:text-[#ccff00] dark:bg-[#ccff00]/10 dark:border-[#ccff00]/20 text-xs font-bold uppercase tracking-widest mb-4"
+                >
+                    <Video className="w-3 h-3" /> AI Interview Studio
+                </motion.div>
+                <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">Master Your Presence.</h1>
+                <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto text-lg">
+                    Real-time AI analysis of your posture, eye contact, and verbal responses.
+                </p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Resume Card */}
-                <div onClick={() => document.getElementById('res-upload').click()}
-                    className="glass-card-hover p-10 cursor-pointer flex flex-col items-center text-center group">
-                    <div className="bg-blue-500/20 p-4 rounded-full mb-6 group-hover:scale-110 transition border border-blue-500/30">
-                        <Upload className="w-10 h-10 text-blue-400" />
+                <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    className="apple-card p-10 cursor-pointer flex flex-col items-center text-center group relative overflow-hidden"
+                >
+                    <div className="bg-lime-400/20 dark:bg-[#ccff00]/10 p-5 rounded-full mb-6 group-hover:bg-lime-400/30 dark:group-hover:bg-[#ccff00]/20 transition-colors">
+                        <Upload className="w-8 h-8 text-lime-700 dark:text-[#ccff00]" />
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-3">Upload Resume</h2>
-                    <p className="text-gray-400 mb-6">Generate tailored questions based on your actual CV profile.</p>
-                    <div className="btn-ghost text-sm py-2">Select PDF</div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Upload Resume</h2>
+                    <p className="text-gray-600 dark:text-gray-400 mb-8 text-sm">Generate tailored questions based on your actual CV profile.</p>
+
+                    <button onClick={() => document.getElementById('res-upload').click()} className="btn-glass px-8 py-3 rounded-full text-sm font-bold">
+                        Select PDF
+                    </button>
                     <input id="res-upload" type="file" accept=".pdf" className="hidden" onChange={(e) => startResumeSession(e.target.files[0])} />
-                </div>
+                </motion.div>
 
                 {/* Role Cards */}
                 <div className="space-y-4">
-                    <div onClick={() => startRoleSession("Software Engineer")} className="glass-card-hover p-6 cursor-pointer flex items-center gap-4">
-                        <div className="p-3 bg-green-500/20 rounded-xl border border-green-500/20">
-                            <Code className="w-6 h-6 text-green-400" />
+                    <motion.div whileHover={{ x: 5 }} onClick={() => startRoleSession("Software Engineer")} className="apple-card p-6 cursor-pointer flex items-center gap-6 hover:bg-gray-100 dark:hover:bg-[#2c2c2e] transition-colors">
+                        <div className="p-4 bg-blue-500/10 rounded-2xl">
+                            <Code className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-white text-lg">Software Engineer</h3>
-                            <p className="text-xs text-gray-500">System Design & Coding</p>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-lg">Software Engineer</h3>
+                            <p className="text-xs text-gray-600 dark:text-gray-500 font-medium">System Design & Coding</p>
                         </div>
                         <ChevronRight className="ml-auto text-gray-600" />
-                    </div>
-                    <div onClick={() => startRoleSession("Product Manager")} className="glass-card-hover p-6 cursor-pointer flex items-center gap-4">
-                        <div className="p-3 bg-orange-500/20 rounded-xl border border-orange-500/20">
-                            <Users className="w-6 h-6 text-orange-400" />
+                    </motion.div>
+
+                    <motion.div whileHover={{ x: 5 }} onClick={() => startRoleSession("Product Manager")} className="apple-card p-6 cursor-pointer flex items-center gap-6 hover:bg-gray-100 dark:hover:bg-[#2c2c2e] transition-colors">
+                        <div className="p-4 bg-orange-500/10 rounded-2xl">
+                            <Users className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-white text-lg">Product Manager</h3>
-                            <p className="text-xs text-gray-500">Strategy & Execution</p>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-lg">Product Manager</h3>
+                            <p className="text-xs text-gray-600 dark:text-gray-500 font-medium">Strategy & Execution</p>
                         </div>
                         <ChevronRight className="ml-auto text-gray-600" />
-                    </div>
+                    </motion.div>
                 </div>
             </div>
 
             {loadingModel && (
-                <div className="glass-card flex items-center justify-center gap-3 py-3 px-6 mx-auto w-fit text-blue-300 text-sm">
-                    <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                    Initializing Vision Models... please wait.
-                </div>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center gap-3 py-3 px-6 mx-auto w-fit text-[#ccff00] text-xs font-bold uppercase tracking-wider bg-[#ccff00]/5 rounded-full border border-[#ccff00]/10">
+                    <div className="w-3 h-3 border-2 border-[#ccff00] border-t-transparent rounded-full animate-spin"></div>
+                    Initializing Vision Models...
+                </motion.div>
             )}
         </div>
     );
 
     const renderSessionView = () => (
-        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in p-4">
+        <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in p-4 relative z-10">
             {/* Camera Feed */}
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-gray-800 bg-black h-[500px]">
-                {/* DEBUG: Added controls and removed transform */}
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-black h-[500px]">
                 <video
                     ref={videoRef}
-                    className="absolute w-full h-full object-contain z-10"
+                    className="absolute w-full h-full object-cover z-10 opacity-80"
                     autoPlay
                     playsInline
                     muted
-                    controls
-                // controlsList="nodownload nofullscreen noremoteplayback"
                 ></video>
 
-                {/* Hiding Canvas for Debugging to ensure Video is visible */}
-                <canvas ref={canvasRef} className="absolute w-full h-full object-cover z-20 pointer-events-none opacity-50"></canvas>
+                <canvas ref={canvasRef} className="absolute w-full h-full object-cover z-20 pointer-events-none opacity-80"></canvas>
 
-                <div className="absolute top-4 left-4 glass-card px-4 py-2 flex items-center gap-2 z-30">
-                    <div className={`w-3 h-3 rounded-full ${postureScore > 80 ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className="font-mono font-bold text-white">Confidence: {postureScore}</span>
+                <div className="absolute top-6 left-6 bg-black/40 backdrop-blur-md px-4 py-2 flex items-center gap-3 z-30 rounded-full border border-white/5">
+                    <div className={`w-3 h-3 rounded-full ${postureScore > 80 ? 'bg-[#ccff00] shadow-[0_0_10px_#ccff00]' : 'bg-red-500 shadow-[0_0_10px_red]'}`}></div>
+                    <span className="font-mono font-bold text-white text-xs tracking-wider">CONFIDENCE: {postureScore}</span>
                 </div>
 
-                {/* Non-blocking AI Loader */}
                 {!modelReady && (
-                    <div className="absolute top-4 right-4 glass-card px-3 py-1 z-30 flex items-center gap-2">
-                        <div className="w-3 h-3 border-2 border-blue-200 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-xs text-blue-200">AI Loading...</span>
+                    <div className="absolute top-6 right-6 bg-black/40 backdrop-blur-md px-3 py-1.5 z-30 flex items-center gap-2 rounded-full border border-white/5">
+                        <div className="w-3 h-3 border-2 border-[#ccff00] border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-xs text-[#ccff00] font-bold">AI INIT</span>
                     </div>
                 )}
 
-                {/* Status Overlay */}
                 {cameraStatus !== "Active" && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-20">
                         <div className="text-center">
-                            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4 mx-auto"></div>
-                            <p className="text-blue-300 font-bold">{cameraStatus}</p>
+                            <div className="w-12 h-12 border-4 border-[#ccff00] border-t-transparent rounded-full animate-spin mb-4 mx-auto"></div>
+                            <p className="text-[#ccff00] font-bold text-sm tracking-wider uppercase">{cameraStatus}</p>
                         </div>
                     </div>
                 )}
             </div>
 
             {/* Interaction Panel */}
-            <div className="flex flex-col h-[500px] gap-4">
-                <div className="glass-card p-8 flex-1 flex flex-col justify-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
-                    <span className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-4">Question {currentQuestionIndex + 1} of {questions.length}</span>
+            <div className="flex flex-col h-[500px] gap-6">
+                <div className="apple-card p-8 flex-1 flex flex-col justify-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-[#ccff00] rounded-full blur-[120px] opacity-5 -mr-20 -mt-20 pointer-events-none"></div>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Question {currentQuestionIndex + 1} of {questions.length}</span>
                     <h2 className="text-3xl font-bold text-white leading-tight">
                         {questions[currentQuestionIndex]}
                     </h2>
                 </div>
 
-                <div className="flex-1 glass-card p-4 overflow-y-auto mb-4 border border-white/10">
-                    <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 apple-card p-6 overflow-y-auto border border-white/5 bg-black/20">
+                    <div className="flex items-center gap-3 mb-4">
                         {isListening ? (
-                            <div className="animate-pulse flex items-center gap-2 text-red-400">
+                            <div className="animate-pulse flex items-center gap-2 text-red-500 bg-red-500/10 px-3 py-1 rounded-full w-fit">
                                 <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                <span className="text-xs uppercase font-bold">Listening...</span>
+                                <span className="text-xs uppercase font-bold tracking-wider">Listening</span>
                             </div>
                         ) : (
-                            <span className="text-xs text-gray-500 uppercase font-bold">Mic Off</span>
+                            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full w-fit">
+                                <Mic className="w-3 h-3" /> Mic Off
+                            </span>
                         )}
                     </div>
-                    <p className="text-gray-300 text-lg italic">
-                        "{transcript || "Start speaking..."}"
+                    <p className="text-gray-300 text-lg leading-relaxed font-medium">
+                        "{transcript || <span className="text-gray-600">Start speaking to see your answer here...</span>}"
                     </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <button onClick={() => speakText(questions[currentQuestionIndex])}
-                        className="btn-ghost flex items-center justify-center gap-2">
-                        <Mic className="w-5 h-5" /> Repeat
+                        className="btn-glass flex items-center justify-center gap-2 py-4">
+                        <RefreshCw className="w-4 h-4" /> Repeat
                     </button>
                     <button onClick={handleNextQuestion}
-                        className="btn-primary flex items-center justify-center gap-2">
-                        Next / Finish <ChevronRight className="w-5 h-5" />
+                        className="btn-lime flex items-center justify-center gap-2 py-4">
+                        Next Question <ChevronRight className="w-4 h-4" />
                     </button>
                 </div>
-                <button onClick={() => setIsSessionActive(false)} className="mt-2 text-red-400 text-sm hover:underline text-center w-full">
-                    End Session
+                <button onClick={() => setIsSessionActive(false)} className="mt-2 text-gray-500 text-xs font-bold uppercase tracking-wider hover:text-red-400 transition-colors flex items-center justify-center gap-2">
+                    <X className="w-3 h-3" /> End Session
                 </button>
             </div>
         </div>
     );
 
     return (
-        <div className="min-h-[calc(100vh-64px)] w-full flex flex-col items-center justify-center p-4">
+        <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 md:p-8 pb-32">
+
+            {/* Background Accent */}
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#ccff00] rounded-full blur-[200px] opacity-[0.03] pointer-events-none z-0"></div>
+
             {isLoading ? (
-                <div className="animate-pulse flex flex-col items-center">
-                    <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-                    <p className="text-blue-200 text-lg font-medium">{loadingMessage}</p>
+                <div className="flex flex-col items-center relative z-10">
+                    <div className="w-16 h-16 border-4 border-[#ccff00]/20 border-t-[#ccff00] rounded-full animate-spin mb-6"></div>
+                    <p className="text-[#ccff00] text-sm font-bold uppercase tracking-widest animate-pulse">{loadingMessage}</p>
                 </div>
             ) : (
                 <>
-                    {!isSessionActive && !sessionStats && renderLandingPage()}
-                    {isSessionActive && renderSessionView()}
-                    {sessionStats && (
-                        <div className="glass-card p-10 max-w-2xl text-center border-t border-green-500/30">
-                            <h2 className="text-4xl font-bold mb-8 text-white">Session Complete! 🎉</h2>
-                            <div className="flex justify-center gap-12 mb-10">
-                                <div className="text-center">
-                                    <div className="text-5xl font-black text-green-400 mb-2">{sessionStats.focus_score}%</div>
-                                    <div className="text-sm text-gray-400 uppercase tracking-wider">Visual Focus</div>
+                    <AnimatePresence mode='wait'>
+                        {!isSessionActive && !sessionStats && (
+                            <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                {renderLandingPage()}
+                            </motion.div>
+                        )}
+                        {isSessionActive && (
+                            <motion.div key="session" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex justify-center">
+                                {renderSessionView()}
+                            </motion.div>
+                        )}
+                        {sessionStats && (
+                            <motion.div key="stats" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="apple-card p-10 max-w-2xl text-center border-t border-[#ccff00]/20 relative z-10">
+                                <h2 className="text-4xl font-bold mb-8 text-white">Session Complete <span className="text-[#ccff00]">.</span></h2>
+                                <div className="flex justify-center gap-12 mb-12">
+                                    <div className="text-center">
+                                        <div className="text-6xl font-black text-[#ccff00] mb-2">{sessionStats.focus_score}%</div>
+                                        <div className="text-xs text-gray-500 uppercase tracking-widest font-bold">Visual Focus</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-6xl font-black text-white mb-2">{sessionStats.posture_score}</div>
+                                        <div className="text-xs text-gray-500 uppercase tracking-widest font-bold">Confidence</div>
+                                    </div>
                                 </div>
-                                <div className="text-center">
-                                    <div className="text-5xl font-black text-blue-400 mb-2">{sessionStats.posture_score}</div>
-                                    <div className="text-sm text-gray-400 uppercase tracking-wider">Confidence</div>
+                                <div className="bg-[#1c1c1e] p-8 rounded-3xl mb-10 text-left border border-white/5">
+                                    <span className="text-xs font-bold text-[#ccff00] uppercase tracking-widest mb-2 block">AI Feedback</span>
+                                    <p className="text-gray-300 leading-relaxed text-lg">"{sessionStats.feedback}"</p>
                                 </div>
-                            </div>
-                            <div className="bg-white/5 p-6 rounded-xl mb-8 text-left">
-                                <span className="text-xs font-bold text-gray-500 uppercase">AI Feedback</span>
-                                <p className="text-gray-300 italic mt-2 text-lg">"{sessionStats.feedback}"</p>
-                            </div>
-                            <button onClick={() => { setSessionStats(null); setPostureScore(100); setGoodPostureCount(0); setTotalFrames(0); }}
-                                className="btn-primary w-full">
-                                Start New Session
-                            </button>
-                        </div>
-                    )}
+
+                                {pdfUrl && (
+                                    <a href={pdfUrl} download={`Interview_Report_${new Date().toISOString().slice(0, 10)}.pdf`} className="btn-glass w-full py-4 text-lg mb-4 flex items-center justify-center gap-2">
+                                        <Upload className="w-5 h-5 rotate-180" /> Download Report Again
+                                    </a>
+                                )}
+
+                                <button onClick={() => { setSessionStats(null); setPostureScore(100); setGoodPostureCount(0); setTotalFrames(0); setPdfUrl(null); }}
+                                    className="btn-lime w-full py-4 text-lg">
+                                    Start New Session
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </>
             )}
-        </div>
+        </div >
     );
 };
 
