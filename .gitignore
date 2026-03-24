@@ -4,17 +4,54 @@ frontend/src/firebaseConfig.js
 .env
 .env.local
 service_account_key.json
+*.env
 
 # System
 .DS_Store
+Thumbs.db
 
 # Python / Django
 backend/venv/
 backend/__pycache__/
+__pycache__/
 *.pyc
 db.sqlite3
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
 
 # Node / Frontend
 frontend/node_modules/
+node_modules/
 frontend/dist/
+dist/
 frontend/.env
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Large files / Zip
+*.zip
+*.rar
+*.7z
+leetcode.csv
+JobsDatasetProcessed.csv
+
+# Temporary files
+temp_screenshots/
+curl_output.txt
+curl_output_3.txt
+response_debug_history.json
+test_report.pdf

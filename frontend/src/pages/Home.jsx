@@ -9,13 +9,8 @@ const Home = () => {
     const { loginWithGoogle } = useAuth();
     const navigate = useNavigate();
 
-    const handleStart = async () => {
-        const result = await loginWithGoogle();
-        if (result.success) {
-            navigate('/career-guide');
-        } else {
-            alert("Login Failed: " + result.error);
-        }
+    const handleStart = () => {
+        navigate('/career-guide');
     };
     return (
         <div className="space-y-32 py-20 pb-40">

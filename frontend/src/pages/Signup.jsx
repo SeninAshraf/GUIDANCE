@@ -9,12 +9,21 @@ const Signup = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const { signup } = useAuth();
+    const { signup, loginWithGoogle } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         const result = await signup(username, email, password);
+        if (result.success) {
+            navigate('/');
+        } else {
+            setError(result.error);
+        }
+    };
+
+    const handleGoogleSignup = async () => {
+        const result = await loginWithGoogle();
         if (result.success) {
             navigate('/');
         } else {
@@ -55,6 +64,7 @@ const Signup = () => {
                             onChange={(e) => setUsername(e.target.value)}
                             className="w-full bg-[#1c1c1e] text-white rounded-xl px-4 py-3 border border-white/10 outline-none focus:border-[#ccff00]/50 transition-all placeholder:text-gray-600 focus:bg-[#2c2c2e]"
                             placeholder="Choose a username"
+                            required
                         />
                     </div>
                     <div>
@@ -65,6 +75,7 @@ const Signup = () => {
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full bg-[#1c1c1e] text-white rounded-xl px-4 py-3 border border-white/10 outline-none focus:border-[#ccff00]/50 transition-all placeholder:text-gray-600 focus:bg-[#2c2c2e]"
                             placeholder="Enter your email"
+                            required
                         />
                     </div>
                     <div>
@@ -75,15 +86,33 @@ const Signup = () => {
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full bg-[#1c1c1e] text-white rounded-xl px-4 py-3 border border-white/10 outline-none focus:border-[#ccff00]/50 transition-all placeholder:text-gray-600 focus:bg-[#2c2c2e]"
                             placeholder="••••••••"
+                            required
                         />
                     </div>
 
-                    <button
-                        type="submit"
-                        className="w-full btn-lime flex items-center justify-center gap-2 group"
-                    >
-                        Create Account <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </button>
+                    <div className="space-y-3">
+                        <button
+                            type="submit"
+                            className="w-full btn-lime flex items-center justify-center gap-2 group py-3.5"
+                        >
+                            Create Account <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </button>
+
+                        <div className="relative flex items-center py-2">
+                            <div className="flex-grow border-t border-white/5"></div>
+                            <span className="flex-shrink mx-4 text-[10px] font-bold text-gray-600 uppercase tracking-widest">Or create with</span>
+                            <div className="flex-grow border-t border-white/5"></div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleGoogleSignup}
+                            className="w-full bg-white/5 hover:bg-white/10 text-white rounded-xl py-3 border border-white/10 font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2"
+                        >
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
+                            Sign up with Google
+                        </button>
+                    </div>
                 </form>
 
                 <div className="mt-8 text-center text-sm text-gray-500">

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Brain, CheckCircle, ArrowRight, Code, Trophy, Shuffle } from 'lucide-react';
+import { Sparkles, Brain, CheckCircle, ArrowRight, Code, Trophy, Shuffle, Lightbulb, Eye, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
@@ -30,6 +30,8 @@ const CodeHelper = () => {
     const [completedCodeLines, setCompletedCodeLines] = useState([]);
     const [codeError, setCodeError] = useState(null);
     const [codeSuccess, setCodeSuccess] = useState(null);
+    const [showHint, setShowHint] = useState(false);
+    const [showSolution, setShowSolution] = useState(false);
 
     // Fetch Problem
     useEffect(() => {
@@ -56,6 +58,8 @@ const CodeHelper = () => {
     const fetchProblem = async () => {
         setPhase('loading');
         setProblem(null);
+        setShowHint(false);
+        setShowSolution(false);
         resetStates();
 
         try {
@@ -161,12 +165,12 @@ const CodeHelper = () => {
                     animate={{ opacity: 1, y: 0 }}
                     className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/20 text-[#ccff00] text-xs font-bold uppercase tracking-widest mb-4"
                 >
-                    <Brain className="w-3 h-3" /> Logic Quest 2.0
+                    <Code className="w-3 h-3" /> Interview Coach AI
                 </motion.div>
                 <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500 mb-2">
-                    {phase === 'logic' && "Sequence Architecture"}
-                    {phase === 'coding' && "Code Synthesis"}
-                    {phase === 'victory' && "System Online"}
+                    {phase === 'logic' && "Technical Decomposition"}
+                    {phase === 'coding' && "Syntax Implementation"}
+                    {phase === 'victory' && "Challenge Mastered"}
                     {phase === 'loading' && "System Boot"}
                 </h1>
             </div>
@@ -178,17 +182,17 @@ const CodeHelper = () => {
                         value={difficulty} onChange={(e) => setDifficulty(e.target.value)}
                         className="bg-transparent text-xs font-bold uppercase tracking-wider text-gray-400 focus:text-white outline-none px-4 py-2 cursor-pointer border-r border-white/10 pr-8"
                     >
-                        <option value="beginner">Beginner Mode</option>
-                        <option value="medium">Engineer Mode</option>
-                        <option value="hard">Architect Mode</option>
+                        <option value="beginner">Easy Mode</option>
+                        <option value="medium">Medium Mode</option>
+                        <option value="hard">Hard Mode</option>
                     </select>
                     <select
                         value={category} onChange={(e) => setCategory(e.target.value)}
                         className="bg-transparent text-xs font-bold uppercase tracking-wider text-gray-400 focus:text-white outline-none px-4 py-2 cursor-pointer pr-8"
                     >
-                        <option value="strings">String Processor</option>
-                        <option value="sql">Database Query</option>
-                        <option value="logic">Core Logic</option>
+                        <option value="strings">String Algorithms</option>
+                        <option value="sql">SQL Queries</option>
+                        <option value="logic">Data Structures</option>
                     </select>
                     <button onClick={fetchProblem} className="bg-white/10 hover:bg-white text-white hover:text-black px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all">
                         Reset
@@ -226,7 +230,19 @@ const CodeHelper = () => {
                             {/* LEFT: Context */}
                             <div className="lg:w-1/3 space-y-6">
                                 <div>
-                                    <div className="text-[#ccff00] text-xs font-bold uppercase tracking-widest mb-2">Objective</div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div className="text-[#ccff00] text-xs font-bold uppercase tracking-widest">Objective</div>
+                                        {problem.leetcode_url && (
+                                            <a 
+                                                href={problem.leetcode_url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-[10px] font-bold text-gray-500 hover:text-white flex items-center gap-1 transition-colors"
+                                            >
+                                                View on LeetCode <ExternalLink className="w-2.5 h-2.5" />
+                                            </a>
+                                        )}
+                                    </div>
                                     <h2 className="text-3xl font-bold text-white leading-tight">{problem.title}</h2>
                                 </div>
                                 <div className="bg-[#1c1c1e] p-6 rounded-2xl border border-white/10 text-gray-300 leading-relaxed text-sm">
@@ -240,6 +256,62 @@ const CodeHelper = () => {
                                         ⚠️ {logicError}
                                     </div>
                                 )}
+
+                                {problem.hint && (
+                                    <div className="pt-4">
+                                        <button 
+                                            onClick={() => setShowHint(!showHint)}
+                                            className="flex items-center gap-2 text-xs font-bold text-[#ccff00]/60 hover:text-[#ccff00] transition-colors"
+                                        >
+                                            <Lightbulb className="w-3.5 h-3.5" />
+                                            {showHint ? "Hide Hint" : "Need a Hint?"}
+                                        </button>
+                                        <AnimatePresence>
+                                            {showHint && (
+                                                <motion.div 
+                                                    initial={{ opacity: 0, height: 0 }} 
+                                                    animate={{ opacity: 1, height: 'auto' }} 
+                                                    exit={{ opacity: 0, height: 0 }}
+                                                    className="overflow-hidden"
+                                                >
+                                                    <div className="mt-3 p-4 bg-[#ccff00]/5 border border-[#ccff00]/10 rounded-xl text-xs text-[#ccff00]/80 leading-relaxed italic">
+                                                        {problem.hint}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                )}
+
+                                <div className="pt-2">
+                                    <button 
+                                        onClick={() => setShowSolution(!showSolution)}
+                                        className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white transition-colors"
+                                    >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        {showSolution ? "Hide Solution Walkthrough" : "See Full Solution"}
+                                    </button>
+                                    <AnimatePresence>
+                                        {showSolution && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, height: 0 }} 
+                                                animate={{ opacity: 1, height: 'auto' }} 
+                                                exit={{ opacity: 0, height: 0 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="mt-4 p-5 bg-white/5 border border-white/10 rounded-2xl">
+                                                    <div className="text-[10px] font-bold text-[#ccff00] uppercase tracking-tighter mb-2">Technical Implementation</div>
+                                                    <div className="bg-black/40 p-3 rounded-lg font-mono text-[11px] text-gray-400 mb-3 whitespace-pre-wrap border border-white/5">
+                                                        {problem.steps.map(s => s.code_line).join('\n')}
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 leading-relaxed">
+                                                        {problem.simple_explanation}
+                                                    </p>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
                             </div>
 
                             {/* RIGHT: Puzzle Board */}
@@ -369,7 +441,21 @@ const CodeHelper = () => {
                                         )}
                                     </div>
 
-                                    <div className="flex gap-4 mt-12 justify-center">
+                                    <div className="flex gap-4 mt-8 justify-center items-center">
+                                        <button 
+                                            onClick={() => setShowSolution(!showSolution)}
+                                            className={`text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${showSolution ? 'text-white' : 'text-gray-600 hover:text-white'}`}
+                                        >
+                                            <Eye className="w-4 h-4" />
+                                            {showSolution ? "Hide Solution" : "Full Solution"}
+                                        </button>
+                                        <button 
+                                            onClick={() => setShowHint(!showHint)}
+                                            className={`text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${showHint ? 'text-[#ccff00]' : 'text-gray-600 hover:text-white'}`}
+                                        >
+                                            <Lightbulb className="w-4 h-4" />
+                                            {showHint ? "Hide Hint" : "Get Hint"}
+                                        </button>
                                         <button onClick={handleRevealCode} className="text-gray-600 hover:text-white text-xs font-bold uppercase tracking-wider px-6 py-3 transition-colors">
                                             Reveal Syntax
                                         </button>
@@ -377,6 +463,21 @@ const CodeHelper = () => {
                                             Execute
                                         </button>
                                     </div>
+
+                                    <AnimatePresence>
+                                        {showHint && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: 10 }} 
+                                                animate={{ opacity: 1, y: 0 }} 
+                                                exit={{ opacity: 0, y: 10 }}
+                                                className="mt-6 p-5 bg-[#ccff00]/5 border border-[#ccff00]/10 rounded-2xl text-center"
+                                            >
+                                                <p className="text-xs text-[#ccff00]/80 leading-relaxed italic">
+                                                    "{problem.hint}"
+                                                </p>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
                             </div>
                         </motion.div>

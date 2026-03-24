@@ -3,12 +3,31 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 import requests
 import os
-
+import tempfile
+from pypdf import PdfReader
 from groq import Groq
 
 # Provided Key
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+def extract_text_from_url(url):
+    try:
+        response = requests.get(url, timeout=10)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            tmp.write(response.content)
+            tmp_path = tmp.name
+        
+        reader = PdfReader(tmp_path)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text()
+        
+        os.unlink(tmp_path)
+        return text.strip()
+    except Exception as e:
+        print(f"Resume Parsing Error: {e}")
+        return ""
 
 class CareerAdviceView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -24,178 +43,72 @@ class CareerAdviceView(APIView):
 
         try:
             # --- Load Job Reviews Data (Cached Global) ---
-            # --- Load Job Reviews Data (Cached Global) ---
             global glassdoor_context
-            global jobs_context # New Context for Jobs
+            global df_jobs # New Global for the full dataframe
             
             # 1. Load Local Jobs Dataset
-            if 'jobs_context' not in globals():
+            if 'df_jobs' not in globals():
                 try:
                     import pandas as pd
                     csv_path = os.path.join(os.path.dirname(__file__), '../../JobsDatasetProcessed.csv')
-                    print(f"Loading Jobs Dataset from {csv_path}...")
-                    
                     if os.path.exists(csv_path):
                         df_jobs = pd.read_csv(csv_path)
-                        # Sample 20 rows to keep context light but relevant
-                        df_sample = df_jobs[['Job Title', 'IT Skills', 'Soft Skills', 'Experience']].sample(n=20).to_string()
-                        jobs_context = f"REAL MARKET DATA (Sample):\n{df_sample}\n\n"
-                        print("Jobs Dataset Loaded.")
+                        print("Jobs Dataset loaded into memory.")
                     else:
-                        print("JobsDatasetProcessed.csv not found.")
-                        jobs_context = "Data unavailable."
+                        df_jobs = None
                 except Exception as ex:
                     print(f"Jobs Dataset Loading Error: {ex}")
-                    jobs_context = "Data unavailable."
+                    df_jobs = None
 
-            # 2. Load Glassdoor Data (Existing)
+            # 2. Extract Resume Context
+            resume_url = request.data.get('resumeUrl')
+            resume_text = ""
+            if resume_url:
+                print(f"Downloading resume for context: {resume_url}")
+                resume_text = extract_text_from_url(resume_url)
+
+            # 3. Relevant Data Retrieval (Upgrade B)
+            # Find relevant job rows based on resume keywords OR user message
+            relevant_jobs = ""
+            if df_jobs is not None:
+                # Simple keyword search
+                search_query = (user_message + " " + (resume_text[:200] if resume_text else "")).lower()
+                # Focus on Job Titles or Skills
+                mask = df_jobs['Job Title'].str.lower().apply(lambda x: any(w in str(x) for w in search_query.split() if len(w) > 3))
+                matches = df_jobs[mask].head(10)
+                if matches.empty:
+                    matches = df_jobs.sample(n=5)
+                
+                relevant_jobs = "REAL MARKET TRENDS (Relevant to you):\n" + matches[['Job Title', 'IT Skills', 'Experience']].to_string(index=False)
+
+            # 4. Load Glassdoor Data
             if 'glassdoor_context' not in globals():
-                try:
-                     import mlcroissant as mlc
-                     # ... (Existing Glassdoor logic if needed, or we can skip to save time/memory)
-                     # For now, keeping it but wrapping safely
-                     glassdoor_context = "Glassdoor data skipped for speed." 
-                except:
-                     glassdoor_context = "Data unavailable."
+                glassdoor_context = "Glassdoor data skipped for performance."
 
 
             # --- Prompt Engineering ---
             mode = request.data.get('mode', 'general') # 'general' or 'reviews'
             
             base_system_prompt = (
-                "You are a real-life career guidance voice agent specialized in Software Engineering careers. "
-                "You are calm, supportive, mentor-like, and speak naturally like an experienced human counselor.\n\n"
+                "You are GUIDO, your friendly AI career mentor. Your vibe is warm, helpful, and very natural.\n\n"
                 
-                "You do NOT guess information. "
-                "You rely on insights derived from a structured dataset named `job_processed.csv`, "
-                "which has already been indexed into a semantic layer.\n\n"
+                "### VOICE-OPTIMIZED STYLE (CRITICAL)\n"
+                "1. SHORT SENTENCES: Use many short, punchy sentences. This makes the voice synthesis sound like a real person.\n"
+                "2. FRIENDLY VIBE: Be conversational. Use 'Sure!', 'Actually...', or 'That sounds like a plan'.\n"
+                "3. DEEP BUT CONCISE: Provide high-value, deep advice based on the CV, but don't use long walls of text.\n"
+                "4. NO BULLET POINTS: Speak in natural, friendly paragraphs consisting of short sentences.\n\n"
+
+                "### CV-DRIVEN PERSONALIZATION\n"
+                "Always refer to the user's specific skills or projects if available. "
+                "Example: 'I see you've used React before. That's a huge plus for what we're planning.'\n\n"
+
+                "### DATA CONTEXT\n"
+                f"{relevant_jobs}\n\n"
+
+                "### USER PROFILE (FROM WALLET)\n"
+                f"{'NONE' if not resume_text else resume_text[:2500]}\n\n"
                 
-                f"{jobs_context}"  # <--- INJECT REAL DATA HERE
-
-                "-------------------------\n"
-                "DATA CONTEXT (IMPORTANT)\n"
-                "-------------------------\n"
-                "The semantic layer is built from `job_processed.csv`, which includes:\n"
-                "- Job Role\n"
-                "- Software Domain (Backend, Frontend, AI/ML, Data, DevOps, etc.)\n"
-                "- Required Skills\n"
-                "- Programming Languages\n"
-                "- Frameworks\n"
-                "- Tools & Technologies\n"
-                "- Experience Level\n"
-                "- Company Type (Product / Service / Startup)\n"
-                "- Market Demand Indicators (frequency, trend, relevance)\n\n"
-
-                "You never mention the dataset name or columns directly to the user. "
-                "You translate data insights into human-friendly explanations.\n\n"
-
-                "-------------------------\n"
-                "YOUR RESPONSIBILITIES\n"
-                "-------------------------\n"
-                "1. Act like a real-life career counselor.\n"
-                "2. Ask one question at a time.\n"
-                "3. First understand the user before giving advice.\n"
-                "4. Identify the most suitable software domain for the user.\n"
-                "5. Use market data implicitly to guide decisions.\n"
-                "6. Explain company software requirements clearly.\n"
-                "7. Provide a realistic career route plan.\n"
-                "8. Support both voice guidance and PDF generation.\n\n"
-
-                "-------------------------\n"
-                "CONVERSATION FLOW\n"
-                "-------------------------\n\n"
-                "### STAGE 1: HUMAN INTRODUCTION\n"
-                "Start warmly and professionally.\n"
-                "Example: 'Before we talk about careers, I want to understand your background and interests. This will help me guide you properly.'\n\n"
-
-                "### STAGE 2: DISCOVERY INTERVIEW\n"
-                "Ask questions gradually, one at a time.\n"
-                "Cover:\n"
-                "- Educational background\n"
-                "- Programming languages tried\n"
-                "- Comfort level with logic, math, UI, or data\n"
-                "- Projects or experiences\n"
-                "- Current confusion or struggle\n"
-                "- Career expectations\n"
-                "React empathetically to answers.\n\n"
-
-                "### STAGE 3: SEMANTIC ANALYSIS (INTERNAL)\n"
-                "Silently match the user profile against the semantic layer:\n"
-                "- Map interests -> software domains\n"
-                "- Compare skills -> market demand\n"
-                "- Identify skill gaps\n"
-                "Do NOT expose this analysis to the user.\n\n"
-
-                "### STAGE 4: CAREER DOMAIN CONCLUSION\n"
-                "Clearly explain:\n"
-                "- Which software domain fits the user best\n"
-                "- Why this domain suits their personality and skills\n"
-                "- Why other domains may not fit right now\n"
-                "Example tone: 'Based on what you told me and how people with similar profiles succeed in the industry, this path suits you best.'\n\n"
-
-                "### STAGE 5: MARKET-DRIVEN SKILL GUIDANCE\n"
-                "When explaining skills:\n"
-                "- Refer to what companies actually expect\n"
-                "- Prioritize high-demand skills\n"
-                "- Avoid unnecessary or outdated technologies\n"
-                "- Distinguish beginner vs advanced requirements\n"
-                "Explain like a mentor, not a syllabus.\n\n"
-
-                "### STAGE 6: COMPANY SOFTWARE REQUIREMENTS\n"
-                "When user asks: 'I want company requirements for this role'\n"
-                "Explain:\n"
-                "- Summarize core skills in simple, plain English.\n"
-                "- AVOID LONG LISTS or bullet points. Speak in paragraphs.\n"
-                "- Use friendly phrases like 'Companies usually look for...' or 'You'll generally need...'\n"
-                "- Group technical terms naturally (e.g., 'tools like Pandas and NumPy' instead of listing them separately).\n"
-                "- Mention entry-level expectations gently.\n"
-                "Base explanations on patterns from the dataset, but make it sound like a friend explaining it.\n\n"
-
-                "### STAGE 7: CAREER ROUTE PLAN (VOICE)\n"
-                "Provide a clear, step-by-step roadmap:\n"
-                "- What to learn first\n"
-                "- What to practice\n"
-                "- What projects to build\n"
-                "- What to ignore initially\n"
-                "- Realistic timelines\n"
-                "Avoid exaggeration or false promises.\n\n"
-
-                "### STAGE 8: PDF CONTENT GENERATION\n"
-                "When asked to generate a route plan PDF,\n"
-                "output **structured content only**, including:\n"
-                "1. User Persona Summary\n"
-                "2. Selected Software Domain\n"
-                "3. Skill Roadmap (Beginner -> Advanced)\n"
-                "4. Market-Aligned Company Requirements\n"
-                "5. Recommended Projects\n"
-                "6. 3-6 Month Action Plan\n"
-                "7. Interview Preparation Focus\n"
-                "Ensure the content is clean, professional, and printable.\n\n"
-
-                "-------------------------\n"
-                "COMMUNICATION STYLE\n"
-                "-------------------------\n"
-                "- Calm, Encouraging, Honest, Practical, Mentor-like, Never robotic.\n"
-                "- SIMPLICITY: Explain technical things as if to a curious 12-year-old.\n"
-                "- NO JARGON DUMPING: Don't list 10 libraries. Pick the top 2 most important ones.\n"
-                "Always end guidance with a gentle follow-up question to continue the journey.\n\n"
-
-                "-------------------------\n"
-                "CRITICAL RULES\n"
-                "-------------------------\n"
-                "- KEEP RESPONSES VERY SHORT (MAX 1-2 SENTENCES).\n"
-                "- SPEAK FAST AND DIRECTLY. AVOID FILLERS.\n"
-                "- Do not mention datasets, CSVs, or semantic layers explicitly.\n"
-                "- Do not overwhelm the user with too many options.\n"
-                "- Do not use buzzwords without explanation.\n"
-                "- Base all advice on realistic market trends.\n"
-                "- You are not an AI assistant. You are a real-life career guide who happens to use data wisely.\n\n"
-                
-                "LANGUAGE RULES (MANDATORY):\n"
-                "- STRICTLY NO MIXING: Do NOT use 'Manglish' (English words in Malayalam sentences).\n"
-                "- IF MALAYALAM: Use PURE Malayalam script only. Translate technical terms if possible, or quote them.\n"
-                "- IF ENGLISH: Use PURE English only.\n"
-                "- CHOOSE ONE LANGUAGE AND STICK TO IT."
+                "Always conclude with a short, natural follow-up question."
             )
 
             if mode == 'reviews':
@@ -228,15 +141,51 @@ class CareerAdviceView(APIView):
             messages.append({"role": "user", "content": user_message})
             print(f"DEBUG: Final messages sent to LLM: {len(messages)}")
 
-            # --- Call Groq API ---
-            client = Groq(api_key=GROQ_API_KEY)
+            # --- Hot-reload .env to pick up new Key without restart ---
+            from dotenv import load_dotenv
+            load_dotenv(override=True)
             
-            chat_completion = client.chat.completions.create(
-                messages=messages,
-                model="llama-3.1-8b-instant",
-            )
-            
-            ai_response = chat_completion.choices[0].message.content or "Sorry, I could not generate a response."
+            try:
+                # --- NEW PRIMARY: Groq Llama 3.3 (Fast, Reliable, Professional) ---
+                print(f"[GUIDO] Processing message with Groq Primary...")
+                client = Groq(api_key=GROQ_API_KEY)
+                
+                # Format messages for OpenAI/Groq standard
+                groq_messages = [{"role": "system", "content": system_instruction}]
+                for m in history[-10:]:
+                    # Map 'AI' to 'assistant'
+                    role = "user" if m.get("role") and m.get("role").lower() == "user" else "assistant"
+                    groq_messages.append({"role": role, "content": m.get("content", "")})
+                groq_messages.append({"role": "user", "content": user_message})
+
+                completion = client.chat.completions.create(
+                    messages=groq_messages,
+                    model="llama-3.3-70b-versatile",
+                    temperature=0.7,
+                    max_tokens=2048
+                )
+                ai_response = completion.choices[0].message.content or "I'm having a quiet moment. What do you think?"
+                print("[GUIDO] Groq Response Received.")
+
+            except Exception as groq_err:
+                print(f"[GUIDO] Groq Failed: {groq_err}. Falling back to Gemini as secondary...")
+                # --- FALLBACK: Gemini (As secondary brain) ---
+                try:
+                    payload = {
+                        "system_instruction": {"parts": [{"text": system_instruction}]},
+                        "contents": [{"role": "user", "parts": [{"text": user_message}]}], # Simple fallback
+                        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024}
+                    }
+                    fb_resp = requests.post(URL, json=payload, timeout=8)
+                    if fb_resp.status_code == 200:
+                        candidates = fb_resp.json().get('candidates', [])
+                        ai_response = candidates[0]['content']['parts'][0]['text']
+                    else:
+                        ai_response = "I encountered an error connecting to my core processing engine."
+                except Exception as b_err:
+                    print(f"[GUIDO] Complete Brain Failure: {b_err}")
+                    ai_response = "Network congestion detected. I'll need a moment to reconnect."
+
             
             # --- Edge-TTS Audio Generation (Neural & Fast) ---
             try:
@@ -294,51 +243,105 @@ class ChatPDFView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        import io
+        import io, json, requests
         from django.http import FileResponse
-        from reportlab.lib.pagesizes import letter
-        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import A4
         from reportlab.lib import colors
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
 
         try:
             history = request.data.get('history', [])
+            if not history: return Response({"error": "No history found"}, status=400)
+
+            # --- Step 1: Use Groq for High-Speed Roadmap Summarization ---
+            client = Groq(api_key=GROQ_API_KEY)
             
-            # Create a buffer
+            summary_prompt = (
+                "Create a high-impact Career Roadmap based on this data. "
+                "Structure it into 5 sections:\n"
+                "1. EXECUTIVE SUMMARY\n2. CHOSEN DOMAIN\n3. TECH STACK\n4. 90-DAY MILESTONES\n5. MENTOR'S FINAL ADVICE\n\n"
+                f"DATA:\n{str(history[-10:])}\n\n"
+                "Format: Respond ONLY with headers and bullet points."
+            )
+            
+            completion = client.chat.completions.create(
+                messages=[{"role": "user", "content": summary_prompt}],
+                model="llama-3.1-8b-instant",
+            )
+            raw_roadmap = completion.choices[0].message.content or "Roadmap generation failed."
+            # --- Step 2: Generate Premium PDF Layout ---
             buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=letter)
+            doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=50)
             styles = getSampleStyleSheet()
             
-            # Custom Styles
-            title_style = styles['Heading1']
-            user_style = ParagraphStyle('User', parent=styles['BodyText'], textColor=colors.blue, spaceAfter=10)
-            agent_style = ParagraphStyle('Agent', parent=styles['BodyText'], textColor=colors.black, spaceAfter=20)
+            GUIDO_LIME = colors.HexColor("#ccff00")
+            BG_DARK = colors.HexColor("#0f172a") # Dark Slate
+            CARD_BG = colors.HexColor("#1e293b") # Lighter Slate
             
+            title_style = ParagraphStyle('GTitle', parent=styles['Heading1'], textColor=GUIDO_LIME, fontSize=28, alignment=1, spaceAfter=30, fontName='Helvetica-Bold')
+            section_title = ParagraphStyle('SecT', parent=styles['Heading2'], textColor=GUIDO_LIME, fontSize=13, fontName='Helvetica-Bold', spaceBefore=15, spaceAfter=8, textTransform='uppercase')
+            txt_style = ParagraphStyle('CTxt', parent=styles['BodyText'], textColor=colors.whitesmoke, fontSize=10.5, leading=15, fontName='Helvetica')
+
             story = []
+
+            def background(canvas, doc):
+                canvas.saveState()
+                canvas.setFillColor(BG_DARK)
+                canvas.rect(0, 0, A4[0], A4[1], fill=1)
+                # Footer
+                canvas.setFillColor(colors.HexColor("#334155"))
+                canvas.setFont("Helvetica-Bold", 8)
+                canvas.drawCentredString(A4[0]/2, 30, "GENERATED BY GUIDO AI | YOUR CAREER COMPANION")
+                canvas.restoreState()
+
+            story.append(Spacer(1, 10))
+            story.append(Paragraph("<b>GUIDO</b> CAREER ROADMAP", title_style))
+            story.append(Paragraph("<font color='#64748b' size='9'>AI-DRIVEN PERSONALIZED GROWTH BLUEPRINT</font>", ParagraphStyle('Sub', alignment=1)))
+            story.append(Spacer(1, 40))
+
+            # Custom Style for the 'Card' Content
+            box_style = ParagraphStyle(
+                'BoxText',
+                parent=txt_style,
+                borderWidth=1,
+                borderColor=colors.HexColor("#334155"),
+                backColor=CARD_BG,
+                borderRadius=8,
+                borderPadding=15,
+                spaceBefore=0,
+                spaceAfter=15,
+            )
+
+            # --- Processing Sections for Story ---
+            import re
+            raw_text = raw_roadmap.strip().replace("**", "")
             
-            # Title
-            story.append(Paragraph("Career Guidance Session Transcript", title_style))
-            story.append(Spacer(1, 20))
+            # Split logic
+            sections = re.split(r'\n(?=\d\.\s)', raw_text)
+            if len(sections) <= 1:
+                sections = re.split(r'\n(?=\#\#)', raw_text)
             
-            # Content
-            for msg in history:
-                role = msg.get('role', 'unknown').capitalize()
-                content = msg.get('content', '')
-                
-                # Filter out pure system messages usually won't be in history array passed from frontend
-                if role.lower() == 'user':
-                    story.append(Paragraph(f"<b>You:</b> {content}", user_style))
-                else:
-                    # Clean markdown roughly (very basic)
-                    clean_content = content.replace('**', '').replace('###', '')
-                    story.append(Paragraph(f"<b>Mentor:</b> {clean_content}", agent_style))
-            
-            doc.build(story)
+            if len(sections) <= 1:
+                story.append(Paragraph("<b>CAREER INSIGHTS</b>", section_title))
+                story.append(Paragraph(raw_text.replace('\n', '<br/>'), box_style))
+            else:
+                for sec in sections:
+                    if not sec.strip(): continue
+                    parts = sec.strip().split('\n', 1)
+                    header = parts[0].strip()
+                    header = re.sub(r'^\d\.\s*', '', header).strip()
+                    
+                    content = parts[1].strip() if len(parts) > 1 else "Analysis pending..."
+                    story.append(Paragraph(f"<b>{header}</b>", section_title))
+                    story.append(Paragraph(content.replace('\n', '<br/>'), box_style))
+
+            doc.build(story, onFirstPage=background, onLaterPages=background)
             buffer.seek(0)
-            
-            return FileResponse(buffer, as_attachment=True, filename='career_guidance_chat.pdf', content_type='application/pdf')
+            return FileResponse(buffer, as_attachment=True, filename='Guido_Career_Roadmap.pdf')
 
         except Exception as e:
-            print(f"PDF Gen Error: {e}")
+            import traceback
+            print(f"Roadmap PDF Error Traceback: {traceback.format_exc()}")
             return Response({"error": str(e)}, status=500)

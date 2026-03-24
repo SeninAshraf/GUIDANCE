@@ -28,52 +28,61 @@ def load_problems(category='all', difficulty='beginner'):
     
     # 1. Try Loading CSV first
     try:
-        if leetcode_df is None:
-            csv_path = os.path.join(os.path.dirname(__file__), '../../leetcode.csv')
-            if os.path.exists(csv_path):
-                import pandas as pd
-                print("Loading LeetCode CSV...")
-                leetcode_df = pd.read_csv(csv_path)
-                print(f"LeetCode CSV Loaded: {len(leetcode_df)} rows")
-            else:
-                print("leetcode.csv not found.")
-                
-        if leetcode_df is not None:
+        csv_path = os.path.join(os.path.dirname(__file__), 'leetcode.csv')
+        if os.path.exists(csv_path):
+            import csv
+            
             # Map Difficulty
             diff_map = {'beginner': 'Easy', 'medium': 'Medium', 'hard': 'Hard'}
             target_diff = diff_map.get(difficulty, 'Easy')
             
-            # Filter by Difficulty
-            filtered = leetcode_df[leetcode_df['difficulty'] == target_diff]
-            
-            # Filter by Category (Topic)
-            if category and category != 'all':
-                # Simple keyword matching in 'related_topics' or 'tags'
-                # Creating a mask for topics
-                topic_map = {
-                    'strings': 'String',
-                    'sql': 'Database',
-                    'logic': 'Array' # Default logic to Array/Math if not specific
-                }
-                target_topic = topic_map.get(category, '')
-                if target_topic:
-                     # Filter rows where related_topics contains the target_topic
-                     filtered = filtered[filtered['related_topics'].fillna('').str.contains(target_topic, case=False)]
-            
-            # Convert to List of Dicts
-            if not filtered.empty:
-                # Sample 50 to avoid huge list processing, then pick one later
-                sample_df = filtered.sample(n=min(len(filtered), 50))
-                for _, row in sample_df.iterrows():
-                    problems.append({
-                        'title': row.get('title'),
-                        'content': row.get('description'),
-                        'category': category if category != 'all' else 'logic' 
-                    })
-                return problems
+            # Map Category to Topic
+            topic_map = {
+                'strings': 'String',
+                'sql': 'Database',
+                'logic': 'Array'
+            }
+            target_topic = topic_map.get(category, '')
+
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                all_matching = []
+                for row in reader:
+                    # Match Difficulty
+                    if row.get('difficulty') != target_diff:
+                        continue
+                    
+                    # Match Category/Topic
+                    match_found = False
+                    if category == 'all' or not target_topic:
+                        match_found = True
+                    else:
+                        # Check related_topics
+                        topics = row.get('related_topics', '').lower()
+                        if target_topic.lower() in topics:
+                            match_found = True
+                        
+                        # Special SQL handling
+                        if category == 'sql' and not match_found:
+                            desc = row.get('description', '').lower()
+                            title = row.get('title', '').lower()
+                            if any(word in desc or word in title for word in ['table', 'sql', 'database', 'query']):
+                                match_found = True
+                    
+                    if match_found:
+                        all_matching.append({
+                            'title': row.get('title'),
+                            'content': row.get('description'),
+                            'category': category if category != 'all' else 'logic',
+                            'url': row.get('url')
+                        })
+                
+                if all_matching:
+                    # Sample up to 50
+                    return random.sample(all_matching, min(len(all_matching), 50))
                 
     except Exception as e:
-        print(f"CSV Load Error: {e}")
+        print(f"CSV Load Error (Standard Module): {e}")
 
     # 2. Fallback to Seed JSON
     if seed_problems is None:
@@ -113,6 +122,7 @@ class MicroProblemView(APIView):
             row_title = problem.get('title', 'Unknown')
             row_desc = problem.get('content', '')
             row_cat = problem.get('category', 'logic')
+            original_url = problem.get('url')
             
             # --- LATENCY OPTIMIZATION ---
             if len(row_desc) > 2000:
@@ -120,76 +130,69 @@ class MicroProblemView(APIView):
             
             raw_content = f"Title: {row_title}\nDescription: {row_desc}\nCategory: {row_cat}"
             
-            # LogicQuest Persona Mapping
-            realm_map = {
-                'strings': 'Scrolls of String',
-                'sql': 'The Great Archives',
-                'logic': 'The Logic Labyrinth'
-            }
-            current_realm = realm_map.get(row_cat, 'The Code Wilds')
+            # Technical Persona Mapping (Direct & Professional)
             target_lang = "SQL" if row_cat == 'sql' else "Python"
 
-            # PERSONA: LogicQuest AI
+            # PERSONA: Technical Interview Coach
             role_desc = (
-                "You are LogicQuest AI, a mystical game mentor designed to strengthen a player's logical thinking. "
-                "Your primary goal is NOT to give direct code solutions immediately, but to teach the *reasoning* behind them. "
-                "Always teach logic before syntax. Use metaphors relevant to the realm."
+                "You are an expert Technical Interview Coach. Your goal is to help the user solve real-world coding challenges "
+                "by breaking them down into logical steps. Do NOT use mystical metaphors. Use precise technical language."
             )
 
-            # Difficulty & Style Adjustments
+            # Difficulty & Structure Adjustments
             if difficulty == 'hard':
-                style_desc = f"Realm: {current_realm} (Advanced depth). Metaphor: High-stakes mission."
                 rules = (
-                    "1. TITLE: Epic mission title (e.g., 'Repair the Kinetic Shield').\n"
-                    "2. STORY: Complex scenario requiring optimization or edge-case handling.\n"
-                    "3. CONCEPT: Advanced Algorithm/logic.\n"
-                    f"4. STEPS: 5-8 lines of {target_lang}. Focus on efficiency.\n"
-                    "5. EXPLANATION: Deep dive into the 'why'."
+                    "1. TITLE: Keep the ORIGINAL title from the dataset.\n"
+                    "2. STORY: Use the original description. If it's too long, summarize it into 4-5 clear technical sentences.\n"
+                    "3. CONCEPT: Identify the core algorithm or data structure (e.g. 'Dynamic Programming').\n"
+                    f"4. STEPS: 5-8 logical chunks of {target_lang} code.\n"
+                    "5. EXPLANATION: High-level architectural reasoning."
                 )
             elif difficulty == 'medium':
-                style_desc = f"Realm: {current_realm} (Standard journey). Metaphor: Practical builder/explorer."
                 rules = (
-                    "1. TITLE: Adventure title (e.g., 'Bridge the Data Gap').\n"
-                    "2. STORY: Practical scenario with a clear goal.\n"
-                    "3. CONCEPT: Standard pattern.\n"
-                    f"4. STEPS: 4-6 lines of {target_lang}.\n"
-                    "5. EXPLANATION: Clear logic connection."
+                    "1. TITLE: Keep the ORIGINAL title from the dataset.\n"
+                    "2. STORY: Use the original description. Clearly state the input and expected output.\n"
+                    "3. CONCEPT: Standard algorithmic pattern.\n"
+                    f"4. STEPS: 4-6 logical instructions in {target_lang}.\n"
+                    "5. EXPLANATION: Clear connection between the problem constraints and the code logic."
                 )
             else: # beginner
-                style_desc = f"Realm: {current_realm} (Training grounds). Metaphor: Fun, magical, tactile."
                 rules = (
-                    "1. TITLE: Fun title (e.g., 'The Mirror Spell').\n"
-                    "2. STORY: Very simple, relatable analogy (cooking, magic, legos).\n"
-                    "3. CONCEPT: Core building block.\n"
-                    f"4. STEPS: 3-5 simple lines of {target_lang}.\n"
-                    "5. EXPLANATION: Explain like I'm 10 years old."
+                    "1. TITLE: Keep the ORIGINAL title from the dataset.\n"
+                    "2. STORY: Use the original description. Explain any complex terms simply.\n"
+                    "3. CONCEPT: Foundational coding block.\n"
+                    f"4. STEPS: 3-5 simple {target_lang} operations.\n"
+                    "5. EXPLANATION: Step-by-step logic for a beginner."
                 )
 
             # Construct Prompt
             prompt = (
                 f"{role_desc}\n"
-                f"CONTEXT: Player is in {current_realm}. Difficulty: {difficulty.upper()}.\n"
-                f"TASK: Rewrite the following problem into a guided {target_lang} quest.\n"
-                f"RAW PROBLEM: {raw_content}\n\n"
-                "GAME RULES:\n"
-                "1. Teach logic before syntax.\n"
-                "2. Prefer reasoning and step-by-step thinking.\n"
-                "3. **IMP: The user must PLAN before they code.**\n"
-                "4. Maintain a game-like, motivating tone.\n\n"
+                f"CONTEXT: Real-world Technical Challenge. Difficulty: {difficulty.upper()}.\n"
+                f"SOURCE: Official LeetCode Mastery Dataset.\n"
+                f"TASK: Convert the following dataset problem into a structured {target_lang} step-by-step learning guide.\n"
+                f"RAW DATASET ENTRY:\n{raw_content}\n\n"
+                "GUIDELINES:\n"
+                "1. Keep the 'title' EXACTLY as provided in the raw data.\n"
+                "2. The 'story' MUST be the actual technical problem description. DO NOT generalize it.\n"
+                "3. IMPORTANT: Every step's 'goal' and 'logic_pseudocode' MUST refer to the specific technical details in the description (e.g., instead of 'Filter results', use 'Filter employees where salary > 50000').\n"
+                "4. Ensure the 'logic_pseudocode' is a clear, actionable instruction for that specific code line.\n"
+                "5. Professional, encouraging, and highly technical tone.\n\n"
                 "OUTPUT FORMAT RULES (Strict JSON):\n"
                 f"{rules}\n"
                 "COMMON JSON FIELDS:\n"
-                "   - 'goal': A short immediate objective for the step.\n"
-                "   - 'logic_pseudocode': A clear, non-code description of the logic for this step (e.g., 'Initialize a list to store results').\n"
-                f"   - 'code_line': The exact single line of {target_lang} code.\n"
+                "   - 'goal': The specific technical objective (e.g., 'Extract the name column from the employee table').\n"
+                "   - 'logic_pseudocode': The precise logical instruction (e.g., 'Select the name field where salary is above 50000').\n"
+                f"   - 'code_line': The exact single line or small block of {target_lang} code.\n"
                 "   - 'step_id': Integer 1, 2, 3...\n"
-                "   - 'explanation': A Mentor's hint or reasoning (WHY we do this).\n"
-                "   - 'simple_explanation': A final victory summary.\n\n"
+                "   - 'explanation': Why this specific line is required for this problem.\n"
+                "   - 'simple_explanation': A summary of the final solution's technical mechanism.\n\n"
                 "RETURN JSON ONLY:\n"
                 "{\n"
                 "  \"title\": \"...\",\n"
                 "  \"story\": \"...\",\n"
                 "  \"concept\": \"...\",\n"
+                "  \"hint\": \"...\",\n"
                 "  \"language\": \"" + target_lang + "\",\n"
                 "  \"simple_explanation\": \"...\",\n"
                 "  \"steps\": [\n"
@@ -239,6 +242,8 @@ class MicroProblemView(APIView):
             
             try:
                 problem_json = json.loads(clean_text)
+                # Inject the original URL
+                problem_json['leetcode_url'] = original_url
                 return Response(problem_json)
             except json.JSONDecodeError as je:
                 print(f"JSON Parse Error: {je}")

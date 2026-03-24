@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Briefcase, Code as CodeIcon, Filter, ExternalLink, Linkedin, Sparkles, TrendingUp, DollarSign } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Search, MapPin, Briefcase, Code as CodeIcon, Filter, ExternalLink, Linkedin, Sparkles, TrendingUp, DollarSign, Upload, File as FileIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
 const JobInsights = () => {
@@ -23,6 +23,10 @@ const JobInsights = () => {
     const [marketAnalysis, setMarketAnalysis] = useState(null);
     const [loadingAnalysis, setLoadingAnalysis] = useState(false);
     const [analysisError, setAnalysisError] = useState(null);
+    const [inputMode, setInputMode] = useState('manual'); // 'manual' or 'cv'
+    const [cvFile, setCvFile] = useState(null);
+    const [cvMatchingStatus, setCvMatchingStatus] = useState('');
+    const [cvAnalysis, setCvAnalysis] = useState(null);
 
     // --- Job Search Logic ---
     const fetchInsights = async () => {
@@ -33,7 +37,6 @@ const JobInsights = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                    // 'Authorization': `Token ${token}` // Removed for open access
                 },
                 body: JSON.stringify({
                     priority: { role, location, tech_stack: techList },
@@ -45,6 +48,45 @@ const JobInsights = () => {
             setSummary(data.insights_summary);
         } catch (error) {
             console.error("Error fetching jobs:", error);
+        } finally {
+            setLoadingJobs(false);
+        }
+    };
+
+    const handleCVSubmit = async () => {
+        if (!cvFile) return;
+        setLoadingJobs(true);
+        setCvMatchingStatus('Extracting details from CV...');
+        setCvAnalysis(null);
+        
+        const formData = new FormData();
+        formData.append('resume', cvFile);
+
+        try {
+            const res = await fetch('http://localhost:8000/api/insights/match-cv/', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "CV Match failed");
+            
+            setJobs(data.recommended_jobs || []);
+            setRole(data.extracted_data?.role || '');
+            setTechStack(data.extracted_data?.tech_stack?.join(', ') || '');
+            setCvAnalysis(data.extracted_data?.detailed_summary || null);
+            
+            setSummary({
+                software_jobs_found: data.recommended_jobs?.length || 0,
+                is_cv_match: true
+            });
+            setCvMatchingStatus('Match Complete!');
+            setTimeout(() => setCvMatchingStatus(''), 3000);
+
+        } catch (error) {
+            console.error(error);
+            setCvMatchingStatus(error.message);
+            setTimeout(() => setCvMatchingStatus(''), 5000);
         } finally {
             setLoadingJobs(false);
         }
@@ -108,39 +150,103 @@ const JobInsights = () => {
             >
                 <div className="flex items-center space-x-2 mb-6 text-lime-700 dark:text-[#ccff00]">
                     <Filter className="w-5 h-5" />
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Filters</h2>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Job Matching</h2>
+                </div>
+
+                {/* Mode Selector */}
+                <div className="flex bg-[#1c1c1e] p-1 rounded-xl border border-white/10 mb-6">
+                    <button
+                        onClick={() => setInputMode('manual')}
+                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition ${inputMode === 'manual' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
+                    >
+                        Manual
+                    </button>
+                    <button
+                        onClick={() => setInputMode('cv')}
+                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition ${inputMode === 'cv' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
+                    >
+                        CV Match
+                    </button>
                 </div>
 
                 <div className="space-y-6">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Role</label>
-                        <select
-                            value={role}
-                            onChange={(e) => setRole(e.target.value)}
-                            className="bg-[#1c1c1e] text-white w-full rounded-xl px-4 py-3 border border-white/10 outline-none focus:border-[#ccff00]/50 appearance-none"
-                        >
-                            <option value="backend">Backend Developer</option>
-                            <option value="frontend">Frontend Developer</option>
-                            <option value="full stack">Full Stack</option>
-                            <option value="data">Data Scientist</option>
-                            <option value="devops">DevOps</option>
-                            <option value="software">General Software</option>
-                        </select>
-                    </div>
+                    <AnimatePresence mode="wait">
+                        {inputMode === 'manual' ? (
+                            <motion.div
+                                key="manual"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="space-y-6"
+                            >
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Role</label>
+                                    <select
+                                        value={role}
+                                        onChange={(e) => setRole(e.target.value)}
+                                        className="bg-[#1c1c1e] text-white w-full rounded-xl px-4 py-3 border border-white/10 outline-none focus:border-[#ccff00]/50 appearance-none"
+                                    >
+                                        <option value="backend">Backend Developer</option>
+                                        <option value="frontend">Frontend Developer</option>
+                                        <option value="full stack">Full Stack</option>
+                                        <option value="data">Data Scientist</option>
+                                        <option value="devops">DevOps</option>
+                                        <option value="software">General Software</option>
+                                    </select>
+                                </div>
 
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Tech Stack</label>
-                        <div className="relative">
-                            <CodeIcon className="absolute left-3 top-3.5 w-4 h-4 text-gray-500" />
-                            <input
-                                type="text"
-                                value={techStack}
-                                onChange={(e) => setTechStack(e.target.value)}
-                                placeholder="python, react, aws"
-                                className="bg-gray-50 dark:bg-[#1c1c1e] text-gray-900 dark:text-white pl-10 w-full rounded-xl px-4 py-3 border border-gray-200 dark:border-white/10 outline-none focus:border-lime-500/50 dark:focus:border-[#ccff00]/50"
-                            />
-                        </div>
-                    </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Tech Stack</label>
+                                    <div className="relative">
+                                        <CodeIcon className="absolute left-3 top-3.5 w-4 h-4 text-gray-500" />
+                                        <input
+                                            type="text"
+                                            value={techStack}
+                                            onChange={(e) => setTechStack(e.target.value)}
+                                            placeholder="python, react, aws"
+                                            className="bg-gray-50 dark:bg-[#1c1c1e] text-gray-900 dark:text-white pl-10 w-full rounded-xl px-4 py-3 border border-gray-200 dark:border-white/10 outline-none focus:border-lime-500/50 dark:focus:border-[#ccff00]/50"
+                                        />
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="cv"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="space-y-4"
+                            >
+                                <div className="border-2 border-dashed border-white/10 rounded-2xl p-6 text-center hover:border-[#ccff00]/30 transition-colors cursor-pointer relative"
+                                     onClick={() => document.getElementById('cv-upload').click()}>
+                                    <input
+                                        id="cv-upload"
+                                        type="file"
+                                        accept=".pdf"
+                                        className="hidden"
+                                        onChange={(e) => setCvFile(e.target.files[0])}
+                                    />
+                                    {cvFile ? (
+                                        <div className="flex flex-col items-center">
+                                            <FileIcon className="w-10 h-10 text-[#ccff00] mb-2" />
+                                            <span className="text-sm text-gray-300 truncate w-full px-4">{cvFile.name}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center">
+                                            <Upload className="w-10 h-10 text-gray-500 mb-2" />
+                                            <span className="text-sm text-gray-500 font-medium">Upload Resume (PDF)</span>
+                                            <span className="text-[10px] text-gray-600 uppercase mt-1">We'll find jobs that match your skills</span>
+                                        </div>
+                                    )}
+                                </div>
+                                {cvMatchingStatus && (
+                                    <p className="text-[10px] text-center uppercase font-bold tracking-widest text-[#ccff00] animate-pulse">
+                                        {cvMatchingStatus}
+                                    </p>
+                                )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Location</label>
@@ -150,33 +256,31 @@ const JobInsights = () => {
                                 type="text"
                                 value={location}
                                 onChange={(e) => setLocation(e.target.value)}
-                                placeholder="Remote"
-                                className="bg-[#1c1c1e] text-white pl-10 w-full rounded-xl px-4 py-3 border border-white/10 outline-none focus:border-[#ccff00]/50"
+                                placeholder="e.g. Remote, USA"
+                                className="bg-gray-50 dark:bg-[#1c1c1e] text-gray-900 dark:text-white pl-10 w-full rounded-xl px-4 py-3 border border-gray-200 dark:border-white/10 outline-none focus:border-lime-500/50 dark:focus:border-[#ccff00]/50"
                             />
                         </div>
                     </div>
 
-                    <div className="pt-2">
-                        <div className="flex bg-[#1c1c1e] p-1 rounded-xl border border-white/10 mb-4">
-                            <button
-                                onClick={() => setSortBy('relevance')}
-                                className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition ${sortBy === 'relevance' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
-                            >
-                                Relevance
-                            </button>
-                            <button
-                                onClick={() => setSortBy('recent')}
-                                className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition ${sortBy === 'recent' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
-                            >
-                                Recent
-                            </button>
-                        </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Sort By</label>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="bg-gray-50 dark:bg-[#1c1c1e] text-gray-900 dark:text-white w-full rounded-xl px-4 py-3 border border-gray-200 dark:border-white/10 outline-none appearance-none"
+                        >
+                            <option value="relevance">Relevance</option>
+                            <option value="date">Newest First</option>
+                        </select>
+                    </div>
 
+                    <div className="pt-4">
                         <button
-                            onClick={fetchInsights}
+                            onClick={inputMode === 'manual' ? fetchInsights : handleCVSubmit}
                             className="btn-lime w-full flex justify-center items-center gap-2"
                         >
-                            Update Feed
+                            <Search className="w-4 h-4" />
+                            {inputMode === 'manual' ? 'Update Feed' : 'Find Matches'}
                         </button>
                     </div>
                 </div>
@@ -265,6 +369,23 @@ const JobInsights = () => {
                         )}
                     </div>
                 </motion.div>
+
+                {/* Candidate Profile Analysis (Shown after CV Match) */}
+                {cvAnalysis && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="apple-card p-6 border-l-4 border-l-[#ccff00]"
+                    >
+                        <div className="flex items-center space-x-3 mb-3">
+                            <TrendingUp className="w-5 h-5 text-[#ccff00]" />
+                            <h3 className="text-lg font-bold text-white">Candidate Profile Analysis</h3>
+                        </div>
+                        <p className="text-gray-400 text-sm leading-relaxed italic">
+                            "{cvAnalysis}"
+                        </p>
+                    </motion.div>
+                )}
 
                 {/* Job List */}
                 <div>

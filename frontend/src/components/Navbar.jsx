@@ -1,143 +1,113 @@
-
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, Mic, FileText, Video, LogOut, Code, User, Home, TrendingUp } from 'lucide-react';
+import { LogOut, User, ChevronDown, Mic, FileText, Video, Code, TrendingUp, Shield } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
-    const { currentUser, loginWithGoogle, logout } = useAuth();
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const location = useLocation();
+    const { user, logout } = useAuth();
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-    const isActive = (path) => location.pathname === path;
-
-    const navLinks = [
-        { path: '/', label: 'Home', icon: <Home className="w-5 h-5" /> },
-        { path: '/career-guide', label: 'Career Agent', icon: <Mic className="w-5 h-5" /> },
-        { path: '/resume-builder', label: 'Resume', icon: <FileText className="w-5 h-5" /> },
-        { path: '/interview', label: 'Interview Coach', icon: <Video className="w-5 h-5" /> },
-        { path: '/insights', label: 'Job Insights', icon: <TrendingUp className="w-5 h-5" /> },
-        { path: '/code-helper', label: 'Coding Mentor', icon: <Code className="w-5 h-5" /> },
+    const quickLinks = [
+        { path: '/personal-wallet', label: 'Personal Vault', icon: <Shield className="w-3.5 h-3.5" /> },
+        { path: '/career-guide', label: 'Career Agent', icon: <Mic className="w-3.5 h-3.5" /> },
+        { path: '/resume-builder', label: 'Resume', icon: <FileText className="w-3.5 h-3.5" /> },
+        { path: '/interview-coach', label: 'Interview Coach', icon: <Video className="w-3.5 h-3.5" /> },
+        { path: '/insights', label: 'Job Insights', icon: <TrendingUp className="w-3.5 h-3.5" /> },
+        { path: '/code-helper', label: 'LogicQuest', icon: <Code className="w-3.5 h-3.5" /> },
     ];
 
-    const handleLogin = async () => {
-        try {
-            await loginWithGoogle();
-        } catch (error) {
-            console.error("Login Failed:", error);
-        }
-    };
-
     return (
-        <nav className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between h-16">
-                    {/* Logo */}
-                    <Link to="/" className="flex items-center space-x-2">
-                        <div className="bg-gradient-to-tr from-blue-500 to-purple-500 p-2 rounded-lg">
-                            <Code className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                            Guido
-                        </span>
-                    </Link>
-
-                    {/* Desktop Menu */}
-                    <div className="hidden md:flex items-center space-x-8">
-                        {navLinks.map((link) => (
-                            <Link
-                                key={link.path}
-                                to={link.path}
-                                className={`flex items-center space-x-2 text-sm font-medium transition-colors duration-200 ${isActive(link.path)
-                                    ? 'text-blue-400'
-                                    : 'text-gray-400 hover:text-white'
-                                    }`}
-                            >
-                                {link.icon}
-                                <span>{link.label}</span>
-                            </Link>
-                        ))}
-                    </div>
-
-                    {/* Auth Section */}
-                    <div className="hidden md:flex items-center space-x-4">
-                        {currentUser ? (
-                            <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-2">
-                                    {currentUser.photoURL ? (
-                                        <img src={currentUser.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-gray-700" />
-                                    ) : (
-                                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
-                                            <User className="w-5 h-5 text-gray-400" />
-                                        </div>
-                                    )}
-                                    <span className="text-sm text-gray-300 font-medium">{currentUser.displayName?.split(' ')[0]}</span>
-                                </div>
-                                <button
-                                    onClick={logout}
-                                    className="p-2 rounded-full hover:bg-gray-800 text-gray-400 hover:text-red-400 transition"
-                                    title="Sign Out"
-                                >
-                                    <LogOut className="w-5 h-5" />
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={handleLogin}
-                                className="px-4 py-2 bg-white text-gray-900 rounded-full text-sm font-bold hover:bg-gray-200 transition transform hover:scale-105"
-                            >
-                                Sign In
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Mobile Menu Button */}
-                    <div className="md:hidden">
+        <header className="fixed top-6 right-6 z-[60]">
+            <div className="flex items-center">
+                {user ? (
+                    <div className="relative">
                         <button
-                            onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className="text-gray-400 hover:text-white focus:outline-none"
+                            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                            className="flex items-center gap-3 p-1.5 pl-4 rounded-full bg-[#1c1c1e]/80 backdrop-blur-xl border border-white/10 hover:border-[#ccff00]/30 transition-all text-gray-400 hover:text-white group shadow-2xl"
                         >
-                            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Mobile Menu */}
-            {isMenuOpen && (
-                <div className="md:hidden bg-gray-900 border-b border-gray-800">
-                    <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                        {navLinks.map((link) => (
-                            <Link
-                                key={link.path}
-                                to={link.path}
-                                onClick={() => setIsMenuOpen(false)}
-                                className={`block px-3 py-2 rounded-md text-base font-medium flex items-center space-x-3 ${isActive(link.path)
-                                    ? 'bg-gray-800 text-white'
-                                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                                    }`}
-                            >
-                                {link.icon}
-                                <span>{link.label}</span>
-                            </Link>
-                        ))}
-                        <div className="mt-4 pt-4 border-t border-gray-800">
-                            {currentUser ? (
-                                <div className="flex items-center justify-between px-3">
-                                    <div className="flex items-center space-x-3">
-                                        {currentUser.photoURL && <img src={currentUser.photoURL} alt="Profile" className="w-8 h-8 rounded-full" />}
-                                        <span className="text-gray-300">{currentUser.displayName}</span>
-                                    </div>
-                                    <button onClick={logout} className="text-red-400">Sign Out</button>
-                                </div>
+                            <span className="text-xs font-bold tracking-tight">{user.displayName || 'Developer'}</span>
+                            {user.photoURL ? (
+                                <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-white/10" />
                             ) : (
-                                <button onClick={handleLogin} className="w-full text-center py-2 bg-blue-600 rounded-lg text-white font-bold">Sign In</button>
+                                <div className="w-8 h-8 rounded-full bg-[#ccff00]/10 flex items-center justify-center border border-[#ccff00]/20">
+                                    <User className="w-4 h-4 text-[#ccff00]" />
+                                </div>
                             )}
-                        </div>
+                            <ChevronDown className={`w-4 h-4 mr-2 transition-transform duration-300 ${showProfileDropdown ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        <AnimatePresence>
+                            {showProfileDropdown && (
+                                <>
+                                    <div 
+                                        className="fixed inset-0 z-40" 
+                                        onClick={() => setShowProfileDropdown(false)}
+                                    />
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        className="absolute right-0 mt-3 w-72 bg-[#1c1c1e] border border-white/10 rounded-3xl shadow-2xl z-50 overflow-hidden"
+                                    >
+                                        {/* Profile Header */}
+                                        <div className="p-5 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
+                                            <div className="flex items-center gap-4 mb-1">
+                                                <div className="w-12 h-12 rounded-2xl bg-[#ccff00]/10 flex items-center justify-center border border-[#ccff00]/20">
+                                                    <User className="w-6 h-6 text-[#ccff00]" />
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-bold text-white leading-tight">{user.displayName || 'User'}</div>
+                                                    <div className="text-[10px] text-gray-500 font-medium truncate w-40">{user.email}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Activities / Quick Links */}
+                                        <div className="p-2 space-y-1">
+                                            <div className="px-4 py-2 text-[10px] font-black text-gray-600 uppercase tracking-widest">Career Journey</div>
+                                            {quickLinks.map(link => (
+                                                <Link
+                                                    key={link.path}
+                                                    to={link.path}
+                                                    onClick={() => setShowProfileDropdown(false)}
+                                                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white text-xs font-bold transition-all"
+                                                >
+                                                    <div className="p-1.5 rounded-lg bg-white/5 group-hover:bg-[#ccff00]/10">
+                                                        {link.icon}
+                                                    </div>
+                                                    {link.label}
+                                                </Link>
+                                            ))}
+                                        </div>
+
+                                        {/* Footer */}
+                                        <div className="p-2 mt-2 bg-black/20 border-t border-white/5 text-xs font-bold text-gray-500 flex justify-center py-4">
+                                            <button
+                                                onClick={() => {
+                                                    logout();
+                                                    setShowProfileDropdown(false);
+                                                }}
+                                                className="flex items-center gap-2 hover:text-red-400 transition-colors"
+                                            >
+                                                <LogOut className="w-4 h-4" /> Sign Out
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                </>
+                            )}
+                        </AnimatePresence>
                     </div>
-                </div>
-            )}
-        </nav>
+                ) : (
+                    <Link
+                        to="/login"
+                        className="px-6 py-2.5 btn-lime rounded-full text-xs font-black uppercase tracking-wider shadow-[0_4px_20px_rgba(204,255,0,0.2)] hover:scale-105 active:scale-95 transition-all"
+                    >
+                        Sign In
+                    </Link>
+                )}
+            </div>
+        </header>
     );
 };
 

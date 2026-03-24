@@ -1,9 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, RefreshCw, FileText, User, BarChart } from 'lucide-react';
+import { Mic, MicOff, RefreshCw, FileText, User, BarChart, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../firebaseConfig';
+import { ref, query as dbQuery, orderByChild, equalTo, onValue } from 'firebase/database';
 
 const CareerGuide = () => {
+    const { user } = useAuth();
+    const [latestResume, setLatestResume] = useState(null);
     // State Initialization
     const [conversation, setConversation] = useState(() => {
         try {
@@ -32,6 +37,31 @@ const CareerGuide = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [language, setLanguage] = useState('english');
     const [mode, setMode] = useState('general');
+
+    // Fetch latest resume on mount
+    useEffect(() => {
+        if (!user?.uid) return;
+
+        const filesRef = ref(db, 'userFiles');
+        const resumeQuery = dbQuery(filesRef, orderByChild('userId'), equalTo(user.uid));
+
+        const unsubscribe = onValue(resumeQuery, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const resumes = Object.entries(data)
+                    .map(([id, val]) => ({ id, ...val }))
+                    .filter(f => f.category === 'resumes')
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                
+                if (resumes.length > 0) {
+                    setLatestResume(resumes[0]);
+                    console.log("[GUIDO] Resume detected for context:", resumes[0].name);
+                }
+            }
+        });
+
+        return () => unsubscribe();
+    }, [user]);
 
     const handleDownloadPDF = async () => {
         if (conversation.length === 0) return alert("No conversation to download!");
@@ -86,7 +116,8 @@ const CareerGuide = () => {
                     message: `${text} ${langInstruction}`,
                     language,
                     mode,
-                    history: conversationRef.current // Use ref for current history
+                    history: conversationRef.current,
+                    resumeUrl: latestResume?.url
                 }),
             });
             const data = await response.json();
@@ -177,6 +208,15 @@ const CareerGuide = () => {
                 <p className="text-gray-400">
                     {mode === 'reviews' ? 'Analyzing Company Reviews & Culture' : 'Professional Software Engineering Mentor'}
                 </p>
+                {latestResume && (
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }} 
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#ccff00]/5 border border-[#ccff00]/10 text-[#ccff00]/70 text-[10px] font-bold uppercase tracking-tighter mx-auto"
+                    >
+                        <FileText className="w-3 h-3" /> Resume Context: {latestResume.name}
+                    </motion.div>
+                )}
             </div>
 
             {/* Controls Bar */}

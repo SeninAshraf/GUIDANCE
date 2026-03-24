@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, MessageSquare, Briefcase, Code2, FileText, User } from 'lucide-react';
+import { Home, MessageSquare, Briefcase, Code2, FileText, User, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ThemeToggle from './ThemeToggle';
 
@@ -9,9 +9,9 @@ const FloatingNav = () => {
     const navItems = [
         { path: '/', icon: Home, label: 'Home' },
         { path: '/career-guide', icon: MessageSquare, label: 'Assistant' },
+        { path: '/code-helper', icon: Code2, label: 'Quest' },
         { path: '/job-insights', icon: Briefcase, label: 'Jobs' },
-        { path: '/code-helper', icon: Code2, label: 'Mentor' },
-        { path: '/resume-builder', icon: FileText, label: 'Resume' },
+        { path: '/personal-wallet', icon: Shield, label: 'Wallet' },
         { path: '/interview-coach', icon: User, label: 'Interview' },
     ];
 
